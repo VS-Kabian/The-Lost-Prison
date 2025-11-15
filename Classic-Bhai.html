@@ -1,0 +1,2173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pixel Maze Quest - Level Editor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #2d3748;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .app-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 25px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-size: 1.8em;
+            font-weight: 700;
+        }
+
+        .mode-tabs {
+            display: flex;
+            gap: 10px;
+            background: rgba(255,255,255,0.2);
+            padding: 5px;
+            border-radius: 12px;
+        }
+
+        .tab-btn {
+            padding: 12px 30px;
+            background: transparent;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1em;
+        }
+
+        .tab-btn:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .tab-btn.active {
+            background: white;
+            color: #667eea;
+        }
+
+        /* Content Area */
+        .content {
+            display: none;
+            padding: 40px;
+        }
+
+        .content.active {
+            display: block;
+        }
+
+        /* Editor Layout */
+        .editor-layout {
+            display: grid;
+            grid-template-columns: 280px 1fr 280px;
+            gap: 30px;
+        }
+
+        /* Sidebar Panel */
+        .panel {
+            background: #f7fafc;
+            border-radius: 12px;
+            padding: 12px;
+            padding-bottom: 20px;
+            height: fit-content;
+            max-height: 85vh;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .panel::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .panel::-webkit-scrollbar-track {
+            background: #e2e8f0;
+            border-radius: 4px;
+        }
+
+        .panel::-webkit-scrollbar-thumb {
+            background: #a0aec0;
+            border-radius: 4px;
+        }
+
+        .panel::-webkit-scrollbar-thumb:hover {
+            background: #718096;
+        }
+
+        .panel-title {
+            font-size: 0.95em;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 6px;
+        }
+
+        .section {
+            margin-bottom: 8px;
+        }
+
+        .section:last-child {
+            margin-bottom: 0;
+        }
+
+        .section-label {
+            font-size: 0.63em;
+            font-weight: 700;
+            color: #4a5568;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+            letter-spacing: 0.5px;
+            padding: 2px 6px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            display: inline-block;
+        }
+
+        /* Level Selector */
+        .level-select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1em;
+            background: white;
+            cursor: pointer;
+            transition: border-color 0.3s;
+        }
+
+        .level-select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .level-name-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 0.95em;
+            margin-top: 10px;
+            transition: border-color 0.3s;
+        }
+
+        .level-name-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        /* Tool Grid */
+        .tool-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 5px;
+        }
+
+        .tool-item {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 5px 3px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 48px;
+        }
+
+        .tool-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+            border-color: #667eea;
+        }
+
+        .tool-item.selected {
+            border-color: #667eea;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-width: 3px;
+        }
+
+        .tool-icon {
+            font-size: 1.5em;
+            margin-bottom: 1px;
+            line-height: 1;
+        }
+
+        .tool-name {
+            font-size: 0.58em;
+            font-weight: 600;
+            line-height: 1;
+        }
+
+        /* Canvas Area */
+        .canvas-area {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .canvas-wrapper {
+            background: #f0f0f0;
+            border: 3px solid #e2e8f0;
+            border-radius: 12px;
+            display: inline-block;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            cursor: crosshair;
+            image-rendering: pixelated;
+        }
+
+        /* Controls */
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            font-size: 0.85em;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(72, 187, 120, 0.4);
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(72, 187, 120, 0.5);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(245, 101, 101, 0.4);
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(245, 101, 101, 0.5);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #cbd5e0 0%, #a0aec0 100%);
+            color: #2d3748;
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        /* Stats Panel */
+        .stats-list {
+            list-style: none;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 6px;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 6px;
+            background: white;
+            border-radius: 6px;
+            border: 2px solid #e2e8f0;
+        }
+
+        .stat-label {
+            font-size: 0.65em;
+            color: #718096;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .stat-value {
+            font-size: 1.2em;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        /* Grid Size Controls */
+        .grid-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .grid-input {
+            width: 60px;
+            padding: 8px;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        /* Game Mode */
+        .game-layout {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .game-stats {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .stat-card-label {
+            font-size: 0.85em;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+
+        .stat-card-value {
+            font-size: 1.5em;
+            font-weight: 700;
+        }
+
+        /* Message */
+        .message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            background: white;
+            padding: 40px 60px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+            z-index: 10000;
+            text-align: center;
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #2d3748;
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        .message.show {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
+        }
+
+        /* Instructions */
+        .instructions {
+            background: #edf2f7;
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 20px;
+        }
+
+        .instruction-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 0;
+            font-size: 0.9em;
+            color: #4a5568;
+        }
+
+        .key-icon {
+            background: white;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 0.85em;
+            border: 2px solid #cbd5e0;
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .editor-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .tool-grid {
+                grid-template-columns: repeat(6, 1fr) !important;
+            }
+
+            .panel {
+                max-height: 60vh;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .tool-grid {
+                grid-template-columns: repeat(4, 1fr) !important;
+            }
+
+            .panel {
+                max-height: 50vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">
+                🎮 Pixel Maze Quest
+            </div>
+            <div class="mode-tabs">
+                <button class="tab-btn active" onclick="switchMode('editor')">📝 Editor</button>
+                <button class="tab-btn" onclick="switchMode('game')">🎮 Play Game</button>
+            </div>
+        </div>
+
+        <!-- Editor Mode -->
+        <div class="content active" id="editorContent">
+            <div class="editor-layout">
+                <!-- Left Panel -->
+                <div class="panel">
+                    <div class="panel-title">⚙️ Settings</div>
+                    
+                    <div class="section">
+                        <div class="section-label">Level</div>
+                        <select class="level-select" id="levelSelect" onchange="loadLevel()">
+                            <option value="1">Level 1</option>
+                            <option value="2">Level 2</option>
+                            <option value="3">Level 3</option>
+                            <option value="4">Level 4</option>
+                            <option value="5">Level 5</option>
+                            <option value="6">Level 6</option>
+                            <option value="7">Level 7</option>
+                            <option value="8">Level 8</option>
+                            <option value="9">Level 9</option>
+                            <option value="10">Level 10</option>
+                        </select>
+                        <input type="text" class="level-name-input" id="levelName" placeholder="Level name...">
+                    </div>
+
+                    <div class="section">
+                        <div class="section-label">Grid Size</div>
+                        <div class="grid-controls">
+                            <input type="number" class="grid-input" id="gridWidth" value="20" min="10" max="30">
+                            <span>×</span>
+                            <input type="number" class="grid-input" id="gridHeight" value="15" min="10" max="20">
+                        </div>
+                        <button class="btn btn-primary" onclick="resizeGrid()" style="width: 100%; margin-top: 10px;">Apply</button>
+                    </div>
+
+                    <div class="section">
+                        <div class="section-label">🖼️ Background</div>
+                        <select class="level-select" id="backgroundSelect" onchange="changeBackground()" style="margin-bottom: 0;">
+                            <option value="none">No Background</option>
+                            <option value="bg1">Forest Platformer</option>
+                            <option value="bg2">Sky Plains</option>
+                        </select>
+                    </div>
+
+                    <div class="section">
+                        <div class="section-label">Actions</div>
+                        <button class="btn btn-success" onclick="saveLevel()" style="width: 100%; margin-bottom: 6px;">💾 Save</button>
+                        <button class="btn btn-primary" onclick="testLevel()" style="width: 100%; margin-bottom: 6px;">▶️ Test</button>
+                        <button class="btn btn-danger" onclick="clearLevel()" style="width: 100%; margin-bottom: 6px;">🗑️ Clear</button>
+                        <button class="btn btn-secondary" onclick="fillBorder()" style="width: 100%;">🔲 Border</button>
+                    </div>
+
+                    <div class="section">
+                        <div class="section-label">📊 Stats</div>
+                        <ul class="stats-list">
+                            <li class="stat-item">
+                                <span class="stat-label">👾</span>
+                                <span class="stat-value" id="monsterCount">0</span>
+                            </li>
+                            <li class="stat-item">
+                                <span class="stat-label">🔫</span>
+                                <span class="stat-value" id="weaponCount">0</span>
+                            </li>
+                            <li class="stat-item">
+                                <span class="stat-label">💣</span>
+                                <span class="stat-value" id="bombCount">0</span>
+                            </li>
+                            <li class="stat-item">
+                                <span class="stat-label">🗝️</span>
+                                <span class="stat-value" id="keyCount">0</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Center - Canvas -->
+                <div class="canvas-area">
+                    <div class="panel-title">🎨 Level Canvas</div>
+                    <div class="canvas-wrapper" id="canvasWrapper">
+                        <canvas id="editorCanvas" width="800" height="600"></canvas>
+                    </div>
+                    <div class="controls-grid">
+                        <button class="btn btn-secondary" onclick="exportLevel()">📤 Export</button>
+                        <button class="btn btn-secondary" onclick="importLevel()">📥 Import</button>
+                    </div>
+                </div>
+
+                <!-- Right Panel -->
+                <div class="panel">
+                    <div class="panel-title">🎨 Tool Palette</div>
+
+                    <!-- TERRAIN Section -->
+                    <div class="section">
+                        <div class="section-label">🌍 Terrain</div>
+                        <div class="tool-grid">
+                            <div class="tool-item selected" onclick="selectTool('empty')" data-tool="empty">
+                                <div class="tool-icon">⬜</div>
+                                <div class="tool-name">Empty</div>
+                            </div>
+                            <div class="tool-item" onclick="selectTool('wall')" data-tool="wall">
+                                <div class="tool-icon">⬛</div>
+                                <div class="tool-name">Wall</div>
+                            </div>
+                            <div class="tool-item" onclick="selectTool('stone')" data-tool="stone">
+                                <div class="tool-icon">🟦</div>
+                                <div class="tool-name">Stone</div>
+                            </div>
+                            <div class="tool-item" onclick="selectTool('red')" data-tool="red">
+                                <div class="tool-icon">🟥</div>
+                                <div class="tool-name">Lava</div>
+                            </div>
+                            <div class="tool-item" onclick="selectTool('brown')" data-tool="brown">
+                                <div class="tool-icon">🟫</div>
+                                <div class="tool-name">Platform</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- OBJECTS Section -->
+                    <div class="section">
+                        <div class="section-label">📦 Objects</div>
+                        <div class="tool-grid">
+                            <div class="tool-item" onclick="selectTool('player')" data-tool="player">
+                                <div class="tool-icon">🟢</div>
+                                <div class="tool-name">Player</div>
+                            </div>
+                            <div class="tool-item" onclick="selectTool('goal')" data-tool="goal">
+                                <div class="tool-icon">⭐</div>
+                                <div class="tool-name">Goal</div>
+                            </div>
+                            <div class="tool-item" onclick="selectTool('key')" data-tool="key">
+                                <div class="tool-icon">🗝️</div>
+                                <div class="tool-name">Key</div>
+                            </div>
+                            <div class="tool-item" onclick="selectTool('door')" data-tool="door">
+                                <div class="tool-icon">🟪</div>
+                                <div class="tool-name">Door</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- COMBAT Section -->
+                    <div class="section">
+                        <div class="section-label">⚔️ Combat</div>
+                        <div class="tool-grid">
+                            <div class="tool-item" onclick="selectTool('monster')" data-tool="monster">
+                                <div class="tool-icon">👾</div>
+                                <div class="tool-name">Monster</div>
+                            </div>
+                            <div class="tool-item" onclick="selectTool('weapon')" data-tool="weapon">
+                                <div class="tool-icon">🔫</div>
+                                <div class="tool-name">Weapon</div>
+                            </div>
+                            <div class="tool-item" onclick="selectTool('bomb')" data-tool="bomb">
+                                <div class="tool-icon">💣</div>
+                                <div class="tool-name">Bomb</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Mode -->
+        <div class="content" id="gameContent">
+            <div class="game-layout">
+                <div class="game-header">
+                    <div class="game-stats">
+                        <div class="stat-card">
+                            <div class="stat-card-label">Level</div>
+                            <div class="stat-card-value" id="gameLevel">1</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card-label">🗝️ Keys</div>
+                            <div class="stat-card-value" id="gameKeys">0</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card-label">🔫 Ammo</div>
+                            <div class="stat-card-value" id="gameAmmo">0</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card-label">❤️ Health</div>
+                            <div class="stat-card-value" id="gameHealth">5</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card-label">⏱️ Time</div>
+                            <div class="stat-card-value" id="gameTime">0s</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card-label">💀 Deaths</div>
+                            <div class="stat-card-value" id="gameDeaths">0</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-secondary" onclick="restartGameLevel()">🔄 Restart</button>
+                        <button class="btn btn-primary" onclick="prevGameLevel()">⏮️ Prev</button>
+                        <button class="btn btn-primary" onclick="nextGameLevel()">⏭️ Next</button>
+                    </div>
+                </div>
+
+                <div class="canvas-area">
+                    <div class="canvas-wrapper" id="gameCanvasWrapper">
+                        <canvas id="gameCanvas" width="800" height="600"></canvas>
+                    </div>
+                </div>
+
+                <div class="instructions">
+                    <div class="instruction-item">
+                        <span class="key-icon">←→</span>
+                        <span class="key-icon">A D</span>
+                        <span>Move left/right</span>
+                    </div>
+                    <div class="instruction-item">
+                        <span class="key-icon">SPACE</span>
+                        <span>Jump</span>
+                    </div>
+                    <div class="instruction-item">
+                        <span class="key-icon">F</span>
+                        <span>Shoot weapon</span>
+                    </div>
+                    <div class="instruction-item">
+                        <span class="key-icon">B</span>
+                        <span>Place bomb (destroys blocks)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="message" id="message"></div>
+
+    <script>
+        // Constants
+        const TILE_SIZE = 40;
+        const GRAVITY = 0.5;
+        const JUMP_POWER = -14;
+        const MOVE_SPEED = 4;
+        const BULLET_SPEED = 8;
+        const BOMB_BLAST_RADIUS = 2;
+
+        // Load block texture images
+        const blockImages = {
+            wall: new Image(),
+            stone: new Image(),
+            lava: new Image(),
+            platform: new Image(),
+            key: new Image(),
+            bomb: new Image(),
+            lock: new Image(),
+            bg1: new Image(),
+            bg2: new Image()
+        };
+
+        blockImages.wall.src = 'Images/Wall.webp';
+        blockImages.stone.src = 'Images/Stone.webp';
+        blockImages.lava.src = 'Images/Lava.png';
+        blockImages.platform.src = 'Images/Wood Platform.webp';
+        blockImages.key.src = 'Images/Key.png';
+        blockImages.bomb.src = 'Images/Bomb-Lev-1.webp';
+        blockImages.lock.src = 'Images/Lock-Normal.png';
+        blockImages.bg1.src = 'Images/BG-1.webp';
+        blockImages.bg2.src = 'Images/BG-2.jpg';
+
+        // Track if images are loaded
+        let imagesLoaded = 0;
+        const totalImages = 9;
+
+        function onImageLoad() {
+            imagesLoaded++;
+            if (imagesLoaded === totalImages) {
+                console.log('All textures loaded successfully!');
+                drawEditor(); // Redraw editor once images load
+                applyBackground(); // Apply background when images load
+            }
+        }
+
+        blockImages.wall.onload = onImageLoad;
+        blockImages.stone.onload = onImageLoad;
+        blockImages.lava.onload = onImageLoad;
+        blockImages.platform.onload = onImageLoad;
+        blockImages.key.onload = onImageLoad;
+        blockImages.bomb.onload = onImageLoad;
+        blockImages.lock.onload = onImageLoad;
+        blockImages.bg1.onload = onImageLoad;
+        blockImages.bg2.onload = onImageLoad;
+
+        // Theme definitions
+        const THEMES = {
+            sky: { bg: '#87CEEB', name: 'Sky Blue' },
+            cave: { bg: '#2c2c2c', name: 'Dark Cave' },
+            sunset: { bg: 'linear-gradient(to bottom, #FF6B6B, #FFA500)', name: 'Sunset' },
+            forest: { bg: '#228B22', name: 'Forest' },
+            space: { bg: 'linear-gradient(to bottom, #1a0033, #4a0080)', name: 'Purple Space' },
+            ocean: { bg: 'linear-gradient(to bottom, #0077be, #00c3cc)', name: 'Ocean' },
+            desert: { bg: 'linear-gradient(to bottom, #f4e7d7, #ffcc66)', name: 'Desert' },
+            snow: { bg: 'linear-gradient(to bottom, #e6f2ff, #ffffff)', name: 'Snow' },
+            lava: { bg: 'linear-gradient(to bottom, #1a0000, #ff4400)', name: 'Lava Hell' },
+            night: { bg: 'linear-gradient(to bottom, #0a0a2e, #000000)', name: 'Night Sky' }
+        };
+
+        // Editor state
+        let editorState = {
+            currentLevel: 1,
+            selectedTool: 'empty',
+            gridWidth: 20,
+            gridHeight: 15,
+            theme: 'sky',
+            background: 'none',
+            grid: [],
+            monsters: [],
+            weapons: [],
+            bombs: [],
+            hearts: [],
+            coins: [],
+            keys: [],
+            doors: [],
+            playerStart: null,
+            goal: null,
+            isDrawing: false
+        };
+
+        // Game state
+        let gameState = {
+            level: 1,
+            keys: 0,
+            ammo: 0,
+            bombCount: 0,
+            time: 0,
+            deaths: 0,
+            health: 5,
+            maxHealth: 5,
+            damageTimer: 0,
+            background: 'none',
+            player: {
+                x: 40,
+                y: 40,
+                width: 30,
+                height: 30,
+                velocityX: 0,
+                velocityY: 0,
+                onGround: false,
+                hasWeapon: false,
+                facingRight: true
+            },
+            monsters: [],
+            collectibles: [],
+            doors: [],
+            bullets: [],
+            placedBombs: [],
+            grid: [],
+            startTime: Date.now()
+        };
+
+        const editorCanvas = document.getElementById('editorCanvas');
+        const editorCtx = editorCanvas.getContext('2d');
+        const gameCanvas = document.getElementById('gameCanvas');
+        const gameCtx = gameCanvas.getContext('2d');
+
+        // Update canvas size based on grid
+        function updateCanvasSize() {
+            editorCanvas.width = editorState.gridWidth * TILE_SIZE;
+            editorCanvas.height = editorState.gridHeight * TILE_SIZE;
+            applyTheme();
+        }
+
+        // Apply theme to canvas background
+        function applyTheme() {
+            const theme = THEMES[editorState.theme];
+            const wrapper = document.getElementById('canvasWrapper');
+            if (wrapper && theme && theme.bg) {
+                if (theme.bg.startsWith('linear-gradient')) {
+                    wrapper.style.background = theme.bg;
+                } else {
+                    wrapper.style.background = theme.bg;
+                }
+            }
+        }
+
+        // Initialize editor
+        function initEditor() {
+            editorState.grid = [];
+            for (let y = 0; y < editorState.gridHeight; y++) {
+                editorState.grid[y] = [];
+                for (let x = 0; x < editorState.gridWidth; x++) {
+                    editorState.grid[y][x] = 0;
+                }
+            }
+            editorState.monsters = [];
+            editorState.weapons = [];
+            editorState.bombs = [];
+            editorState.hearts = [];
+            editorState.coins = [];
+            editorState.keys = [];
+            editorState.doors = [];
+            editorState.playerStart = null;
+            editorState.goal = null;
+            editorState.theme = 'sky';
+            updateCanvasSize();
+            loadLevel();
+        }
+
+        // Change theme
+        function changeTheme() {
+            editorState.theme = document.getElementById('themeSelect').value;
+            applyTheme();
+            drawEditor();
+        }
+
+        // Switch mode
+        function switchMode(mode) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            if (mode === 'editor') {
+                document.getElementById('editorContent').classList.add('active');
+                document.getElementById('gameContent').classList.remove('active');
+                // Reload the current level in editor
+                loadLevel();
+            } else {
+                document.getElementById('editorContent').classList.remove('active');
+                document.getElementById('gameContent').classList.add('active');
+                // Load the game level after a short delay
+                setTimeout(() => {
+                    loadGameLevel();
+                }, 100);
+            }
+        }
+
+        // Select tool
+        function selectTool(tool) {
+            editorState.selectedTool = tool;
+            document.querySelectorAll('.tool-item').forEach(btn => btn.classList.remove('selected'));
+            document.querySelector(`[data-tool="${tool}"]`).classList.add('selected');
+        }
+
+        // Canvas mouse events
+        editorCanvas.addEventListener('mousedown', (e) => {
+            editorState.isDrawing = true;
+            handleCanvasClick(e);
+        });
+
+        editorCanvas.addEventListener('mousemove', (e) => {
+            if (editorState.isDrawing && ['empty', 'wall', 'stone', 'red', 'brown'].includes(editorState.selectedTool)) {
+                handleCanvasClick(e);
+            }
+        });
+
+        editorCanvas.addEventListener('mouseup', () => {
+            editorState.isDrawing = false;
+        });
+
+        editorCanvas.addEventListener('mouseleave', () => {
+            editorState.isDrawing = false;
+        });
+
+        function handleCanvasClick(e) {
+            const rect = editorCanvas.getBoundingClientRect();
+            const x = Math.floor((e.clientX - rect.left) / TILE_SIZE);
+            const y = Math.floor((e.clientY - rect.top) / TILE_SIZE);
+
+            if (x >= 0 && x < editorState.gridWidth && y >= 0 && y < editorState.gridHeight) {
+                const tool = editorState.selectedTool;
+
+                // Clear position first
+                if (tool === 'empty') {
+                    editorState.grid[y][x] = 0;
+                    editorState.monsters = editorState.monsters.filter(m => !(m.x === x && m.y === y));
+                    editorState.weapons = editorState.weapons.filter(w => !(w.x === x && w.y === y));
+                    editorState.bombs = editorState.bombs.filter(b => !(b.x === x && b.y === y));
+                    editorState.keys = editorState.keys.filter(k => !(k.x === x && k.y === y));
+                    editorState.doors = editorState.doors.filter(d => !(d.x === x && d.y === y));
+                    if (editorState.goal && editorState.goal.x === x && editorState.goal.y === y) editorState.goal = null;
+                    if (editorState.playerStart && editorState.playerStart.x === x && editorState.playerStart.y === y) editorState.playerStart = null;
+                }
+                // Terrain
+                else if (tool === 'wall') editorState.grid[y][x] = 1;
+                else if (tool === 'stone') editorState.grid[y][x] = 2;
+                else if (tool === 'red') editorState.grid[y][x] = 3;
+                else if (tool === 'brown') editorState.grid[y][x] = 10;
+                // Objects
+                else if (tool === 'monster') {
+                    editorState.grid[y][x] = 0;
+                    if (!editorState.monsters.find(m => m.x === x && m.y === y)) {
+                        const patrolStart = Math.max(0, x - 3);
+                        const patrolEnd = Math.min(editorState.gridWidth - 1, x + 3);
+                        editorState.monsters.push({ x, y, patrol: [patrolStart, patrolEnd] });
+                    }
+                }
+                else if (tool === 'weapon') {
+                    editorState.grid[y][x] = 0;
+                    if (!editorState.weapons.find(w => w.x === x && w.y === y)) {
+                        editorState.weapons.push({ x, y });
+                    }
+                }
+                else if (tool === 'bomb') {
+                    editorState.grid[y][x] = 0;
+                    if (!editorState.bombs.find(b => b.x === x && b.y === y)) {
+                        editorState.bombs.push({ x, y });
+                    }
+                }
+                else if (tool === 'key') {
+                    editorState.grid[y][x] = 0;
+                    if (!editorState.keys.find(k => k.x === x && k.y === y)) {
+                        editorState.keys.push({ x, y });
+                    }
+                }
+                else if (tool === 'door') {
+                    editorState.grid[y][x] = 0;
+                    if (!editorState.doors.find(d => d.x === x && d.y === y)) {
+                        editorState.doors.push({ x, y });
+                    }
+                }
+                else if (tool === 'goal') {
+                    editorState.grid[y][x] = 0;
+                    editorState.goal = { x, y };
+                }
+                else if (tool === 'player') {
+                    editorState.grid[y][x] = 0;
+                    editorState.playerStart = { x, y };
+                }
+
+                updateEditorInfo();
+                drawEditor();
+            }
+        }
+
+        // Draw editor
+        function drawEditor() {
+            editorCtx.clearRect(0, 0, editorCanvas.width, editorCanvas.height);
+
+            // Draw grid
+            editorCtx.strokeStyle = '#e2e8f0';
+            editorCtx.lineWidth = 1;
+            for (let x = 0; x <= editorState.gridWidth; x++) {
+                editorCtx.beginPath();
+                editorCtx.moveTo(x * TILE_SIZE, 0);
+                editorCtx.lineTo(x * TILE_SIZE, editorState.gridHeight * TILE_SIZE);
+                editorCtx.stroke();
+            }
+            for (let y = 0; y <= editorState.gridHeight; y++) {
+                editorCtx.beginPath();
+                editorCtx.moveTo(0, y * TILE_SIZE);
+                editorCtx.lineTo(editorState.gridWidth * TILE_SIZE, y * TILE_SIZE);
+                editorCtx.stroke();
+            }
+
+            // Draw tiles
+            for (let y = 0; y < editorState.gridHeight; y++) {
+                for (let x = 0; x < editorState.gridWidth; x++) {
+                    const tile = editorState.grid[y][x];
+                    const tileX = x * TILE_SIZE;
+                    const tileY = y * TILE_SIZE;
+
+                    if (tile === 1 && blockImages.wall.complete) {
+                        // Draw wall texture
+                        editorCtx.drawImage(blockImages.wall, tileX, tileY, TILE_SIZE, TILE_SIZE);
+                    } else if (tile === 2 && blockImages.stone.complete) {
+                        // Draw stone texture
+                        editorCtx.drawImage(blockImages.stone, tileX, tileY, TILE_SIZE, TILE_SIZE);
+                    } else if (tile === 3 && blockImages.lava.complete) {
+                        // Draw lava texture
+                        editorCtx.drawImage(blockImages.lava, tileX, tileY, TILE_SIZE, TILE_SIZE);
+                    } else if (tile === 10 && blockImages.platform.complete) {
+                        // Draw platform texture
+                        editorCtx.drawImage(blockImages.platform, tileX, tileY, TILE_SIZE, TILE_SIZE);
+                    } else if (tile !== 0) {
+                        // Fallback to solid colors if images not loaded
+                        if (tile === 1) {
+                            editorCtx.fillStyle = '#2d3748';
+                            editorCtx.fillRect(tileX, tileY, TILE_SIZE, TILE_SIZE);
+                        } else if (tile === 2) {
+                            editorCtx.fillStyle = '#4299e1';
+                            editorCtx.fillRect(tileX, tileY, TILE_SIZE, TILE_SIZE);
+                        } else if (tile === 3) {
+                            editorCtx.fillStyle = '#f56565';
+                            editorCtx.fillRect(tileX, tileY, TILE_SIZE, TILE_SIZE);
+                        } else if (tile === 10) {
+                            editorCtx.fillStyle = '#8B4513';
+                            editorCtx.fillRect(tileX, tileY, TILE_SIZE, TILE_SIZE);
+                        }
+                    }
+                }
+            }
+
+            // Draw monsters
+            editorState.monsters.forEach(monster => {
+                editorCtx.fillStyle = '#e53e3e';
+                editorCtx.fillRect(monster.x * TILE_SIZE + 5, monster.y * TILE_SIZE + 5, 30, 30);
+                editorCtx.font = '24px Arial';
+                editorCtx.textAlign = 'center';
+                editorCtx.fillText('👾', monster.x * TILE_SIZE + 20, monster.y * TILE_SIZE + 28);
+            });
+
+            // Draw weapons
+            editorState.weapons.forEach(weapon => {
+                editorCtx.fillStyle = '#4299e1';
+                editorCtx.fillRect(weapon.x * TILE_SIZE + 8, weapon.y * TILE_SIZE + 8, 24, 24);
+                editorCtx.font = '20px Arial';
+                editorCtx.textAlign = 'center';
+                editorCtx.fillText('🔫', weapon.x * TILE_SIZE + 20, weapon.y * TILE_SIZE + 26);
+            });
+
+            // Draw bombs
+            editorState.bombs.forEach(bomb => {
+                const bombX = bomb.x * TILE_SIZE;
+                const bombY = bomb.y * TILE_SIZE;
+
+                if (blockImages.bomb.complete) {
+                    editorCtx.drawImage(blockImages.bomb, bombX, bombY, TILE_SIZE, TILE_SIZE);
+                } else {
+                    // Fallback to emoji if image not loaded
+                    editorCtx.fillStyle = '#ed8936';
+                    editorCtx.beginPath();
+                    editorCtx.arc(bombX + 20, bombY + 20, 15, 0, Math.PI * 2);
+                    editorCtx.fill();
+                    editorCtx.font = '20px Arial';
+                    editorCtx.textAlign = 'center';
+                    editorCtx.fillText('💣', bombX + 20, bombY + 26);
+                }
+            });
+
+            // Draw keys
+            editorState.keys.forEach(key => {
+                const keyX = key.x * TILE_SIZE;
+                const keyY = key.y * TILE_SIZE;
+
+                if (blockImages.key.complete) {
+                    editorCtx.drawImage(blockImages.key, keyX, keyY, TILE_SIZE, TILE_SIZE);
+                } else {
+                    // Fallback to emoji if image not loaded
+                    editorCtx.fillStyle = '#f6e05e';
+                    editorCtx.beginPath();
+                    editorCtx.arc(keyX + 20, keyY + 20, 12, 0, Math.PI * 2);
+                    editorCtx.fill();
+                    editorCtx.font = '20px Arial';
+                    editorCtx.textAlign = 'center';
+                    editorCtx.fillText('🗝️', keyX + 20, keyY + 26);
+                }
+            });
+
+            // Draw doors
+            editorState.doors.forEach(door => {
+                const doorX = door.x * TILE_SIZE;
+                const doorY = door.y * TILE_SIZE;
+
+                if (blockImages.lock.complete) {
+                    editorCtx.drawImage(blockImages.lock, doorX, doorY, TILE_SIZE, TILE_SIZE);
+                } else {
+                    // Fallback to emoji if image not loaded
+                    editorCtx.fillStyle = '#9f7aea';
+                    editorCtx.fillRect(doorX, doorY, TILE_SIZE, TILE_SIZE);
+                    editorCtx.font = '24px Arial';
+                    editorCtx.textAlign = 'center';
+                    editorCtx.fillText('🔒', doorX + 20, doorY + 26);
+                }
+            });
+
+            // Draw goal
+            if (editorState.goal) {
+                drawStar(editorCtx, editorState.goal.x * TILE_SIZE + 20, editorState.goal.y * TILE_SIZE + 20, 5, 15, 8, '#fbbf24');
+            }
+
+            // Draw player start
+            if (editorState.playerStart) {
+                editorCtx.fillStyle = '#48bb78';
+                editorCtx.beginPath();
+                editorCtx.arc(editorState.playerStart.x * TILE_SIZE + 20, editorState.playerStart.y * TILE_SIZE + 20, 15, 0, Math.PI * 2);
+                editorCtx.fill();
+            }
+        }
+
+        function drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius, color) {
+            const step = Math.PI / spikes;
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.beginPath();
+            ctx.moveTo(0, -outerRadius);
+            for (let i = 0; i < spikes; i++) {
+                const angle = i * step * 2 - Math.PI / 2;
+                ctx.lineTo(Math.cos(angle) * outerRadius, Math.sin(angle) * outerRadius);
+                ctx.lineTo(Math.cos(angle + step) * innerRadius, Math.sin(angle + step) * innerRadius);
+            }
+            ctx.closePath();
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // Update editor info
+        function updateEditorInfo() {
+            document.getElementById('monsterCount').textContent = editorState.monsters.length;
+            document.getElementById('weaponCount').textContent = editorState.weapons.length;
+            document.getElementById('bombCount').textContent = editorState.bombs.length;
+            document.getElementById('keyCount').textContent = editorState.keys.length;
+        }
+
+        // Save level
+        function saveLevel() {
+            if (!editorState.playerStart) {
+                showMessage('⚠️ Please set a player start position!');
+                return;
+            }
+            if (!editorState.goal) {
+                showMessage('⚠️ Please set a goal position!');
+                return;
+            }
+
+            const levelData = {
+                name: document.getElementById('levelName').value || `Level ${editorState.currentLevel}`,
+                gridWidth: editorState.gridWidth,
+                gridHeight: editorState.gridHeight,
+                grid: editorState.grid,
+                monsters: editorState.monsters,
+                weapons: editorState.weapons,
+                bombs: editorState.bombs,
+                keys: editorState.keys,
+                doors: editorState.doors,
+                playerStart: editorState.playerStart,
+                goal: editorState.goal,
+                background: editorState.background
+            };
+
+            localStorage.setItem(`level_${editorState.currentLevel}`, JSON.stringify(levelData));
+            showMessage('✅ Level saved successfully!');
+        }
+
+        // Load level
+        function loadLevel() {
+            editorState.currentLevel = parseInt(document.getElementById('levelSelect').value);
+            const savedLevel = localStorage.getItem(`level_${editorState.currentLevel}`);
+
+            if (savedLevel) {
+                const levelData = JSON.parse(savedLevel);
+                document.getElementById('levelName').value = levelData.name;
+                editorState.gridWidth = levelData.gridWidth || 20;
+                editorState.gridHeight = levelData.gridHeight || 15;
+                document.getElementById('gridWidth').value = editorState.gridWidth;
+                document.getElementById('gridHeight').value = editorState.gridHeight;
+                editorState.grid = levelData.grid;
+                editorState.monsters = levelData.monsters || [];
+                editorState.weapons = levelData.weapons || [];
+                editorState.bombs = levelData.bombs || [];
+                editorState.keys = levelData.keys || [];
+                editorState.doors = levelData.doors || [];
+                editorState.playerStart = levelData.playerStart;
+                editorState.goal = levelData.goal;
+                editorState.background = levelData.background || 'none';
+                document.getElementById('backgroundSelect').value = editorState.background;
+                updateCanvasSize();
+            } else {
+                initEditor();
+                document.getElementById('levelName').value = `Level ${editorState.currentLevel}`;
+            }
+
+            updateEditorInfo();
+            drawEditor();
+            applyBackground();
+        }
+
+        // Clear level
+        function clearLevel() {
+            if (confirm('Clear this level?')) {
+                initEditor();
+                updateEditorInfo();
+                drawEditor();
+            }
+        }
+
+        // Resize grid
+        function resizeGrid() {
+            const newWidth = parseInt(document.getElementById('gridWidth').value);
+            const newHeight = parseInt(document.getElementById('gridHeight').value);
+
+            if (newWidth < 10 || newWidth > 30 || newHeight < 10 || newHeight > 20) {
+                showMessage('⚠️ Grid size must be 10-30 (width) and 10-20 (height)');
+                return;
+            }
+
+            editorState.gridWidth = newWidth;
+            editorState.gridHeight = newHeight;
+
+            const newGrid = [];
+            for (let y = 0; y < newHeight; y++) {
+                newGrid[y] = [];
+                for (let x = 0; x < newWidth; x++) {
+                    newGrid[y][x] = (editorState.grid[y] && editorState.grid[y][x]) || 0;
+                }
+            }
+            editorState.grid = newGrid;
+
+            updateCanvasSize();
+            updateEditorInfo();
+            drawEditor();
+            showMessage('✅ Grid resized!');
+        }
+
+        // Change background
+        function changeBackground() {
+            const selected = document.getElementById('backgroundSelect').value;
+            editorState.background = selected;
+            applyBackground();
+            showMessage('🖼️ Background changed!');
+        }
+
+        // Apply background to canvas wrapper
+        function applyBackground() {
+            const canvasWrapper = document.getElementById('canvasWrapper');
+            const gameCanvasWrapper = document.getElementById('gameCanvasWrapper');
+
+            // Editor canvas: Show preview of selected background
+            if (canvasWrapper) {
+                const editorBg = editorState.background || 'none';
+
+                // Remove all background styles
+                canvasWrapper.style.cssText = canvasWrapper.style.cssText.replace(/background[^;]*(;|$)/g, '');
+
+                if (editorBg === 'bg1' && blockImages.bg1.complete) {
+                    canvasWrapper.style.setProperty('background-image', `url('${blockImages.bg1.src}')`, 'important');
+                    canvasWrapper.style.setProperty('background-color', '#87CEEB', 'important');
+                    canvasWrapper.style.setProperty('background-size', 'cover', 'important');
+                    canvasWrapper.style.setProperty('background-position', 'center', 'important');
+                    canvasWrapper.style.setProperty('background-repeat', 'no-repeat', 'important');
+                } else if (editorBg === 'bg2' && blockImages.bg2.complete) {
+                    canvasWrapper.style.setProperty('background-image', `url('${blockImages.bg2.src}')`, 'important');
+                    canvasWrapper.style.setProperty('background-color', '#87CEEB', 'important');
+                    canvasWrapper.style.setProperty('background-size', 'cover', 'important');
+                    canvasWrapper.style.setProperty('background-position', 'center', 'important');
+                    canvasWrapper.style.setProperty('background-repeat', 'no-repeat', 'important');
+                } else {
+                    canvasWrapper.style.setProperty('background-image', 'none', 'important');
+                    canvasWrapper.style.setProperty('background-color', '#87CEEB', 'important');
+                    canvasWrapper.style.removeProperty('background-size');
+                    canvasWrapper.style.removeProperty('background-position');
+                    canvasWrapper.style.removeProperty('background-repeat');
+                }
+            }
+
+            // Game canvas: Show the background saved with the level
+            if (gameCanvasWrapper) {
+                const gameBg = gameState.background || 'none';
+
+                // Remove all background styles
+                gameCanvasWrapper.style.cssText = gameCanvasWrapper.style.cssText.replace(/background[^;]*(;|$)/g, '');
+
+                if (gameBg === 'bg1' && blockImages.bg1.complete) {
+                    gameCanvasWrapper.style.setProperty('background-image', `url('${blockImages.bg1.src}')`, 'important');
+                    gameCanvasWrapper.style.setProperty('background-color', '#87CEEB', 'important');
+                    gameCanvasWrapper.style.setProperty('background-size', 'cover', 'important');
+                    gameCanvasWrapper.style.setProperty('background-position', 'center', 'important');
+                    gameCanvasWrapper.style.setProperty('background-repeat', 'no-repeat', 'important');
+                } else if (gameBg === 'bg2' && blockImages.bg2.complete) {
+                    gameCanvasWrapper.style.setProperty('background-image', `url('${blockImages.bg2.src}')`, 'important');
+                    gameCanvasWrapper.style.setProperty('background-color', '#87CEEB', 'important');
+                    gameCanvasWrapper.style.setProperty('background-size', 'cover', 'important');
+                    gameCanvasWrapper.style.setProperty('background-position', 'center', 'important');
+                    gameCanvasWrapper.style.setProperty('background-repeat', 'no-repeat', 'important');
+                } else {
+                    gameCanvasWrapper.style.setProperty('background-image', 'none', 'important');
+                    gameCanvasWrapper.style.setProperty('background-color', '#87CEEB', 'important');
+                    gameCanvasWrapper.style.removeProperty('background-size');
+                    gameCanvasWrapper.style.removeProperty('background-position');
+                    gameCanvasWrapper.style.removeProperty('background-repeat');
+                }
+            }
+        }
+
+        // Fill border
+        function fillBorder() {
+            for (let x = 0; x < editorState.gridWidth; x++) {
+                editorState.grid[0][x] = 1;
+                editorState.grid[editorState.gridHeight - 1][x] = 1;
+            }
+            for (let y = 0; y < editorState.gridHeight; y++) {
+                editorState.grid[y][0] = 1;
+                editorState.grid[y][editorState.gridWidth - 1] = 1;
+            }
+            drawEditor();
+            showMessage('✅ Border filled!');
+        }
+
+        // Export level
+        function exportLevel() {
+            saveLevel();
+            const levelData = localStorage.getItem(`level_${editorState.currentLevel}`);
+            const blob = new Blob([levelData], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `level_${editorState.currentLevel}.json`;
+            a.click();
+            showMessage('✅ Level exported!');
+        }
+
+        // Import level
+        function importLevel() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        localStorage.setItem(`level_${editorState.currentLevel}`, event.target.result);
+                        loadLevel();
+                        showMessage('✅ Level imported!');
+                    } catch (err) {
+                        showMessage('❌ Invalid level file!');
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+
+        // Test level
+        function testLevel() {
+            if (!editorState.playerStart) {
+                showMessage('⚠️ Please set the START POINT (🟢) before testing!');
+                return;
+            }
+            if (!editorState.goal) {
+                showMessage('⚠️ Please set the END POINT (⭐) before testing!');
+                return;
+            }
+            
+            // Save the level first
+            const levelData = {
+                name: document.getElementById('levelName').value || `Level ${editorState.currentLevel}`,
+                gridWidth: editorState.gridWidth,
+                gridHeight: editorState.gridHeight,
+                theme: editorState.theme,
+                background: editorState.background,
+                grid: editorState.grid,
+                monsters: editorState.monsters,
+                weapons: editorState.weapons,
+                bombs: editorState.bombs,
+                hearts: editorState.hearts,
+                coins: editorState.coins,
+                keys: editorState.keys,
+                doors: editorState.doors,
+                playerStart: editorState.playerStart,
+                goal: editorState.goal
+            };
+            localStorage.setItem(`level_${editorState.currentLevel}`, JSON.stringify(levelData));
+            
+            // Switch to game mode
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-btn')[1].classList.add('active');
+            document.getElementById('editorContent').classList.remove('active');
+            document.getElementById('gameContent').classList.add('active');
+            
+            // Load the level in game mode
+            setTimeout(() => {
+                loadGameLevel();
+            }, 100);
+        }
+
+        // Show message
+        function showMessage(text) {
+            const msg = document.getElementById('message');
+            msg.innerHTML = text;
+            msg.classList.add('show');
+            setTimeout(() => msg.classList.remove('show'), 2000);
+        }
+
+        // Game functions
+        function loadGameLevel() {
+            gameState.level = editorState.currentLevel;
+            const savedLevel = localStorage.getItem(`level_${gameState.level}`);
+
+            if (!savedLevel) {
+                showMessage('❌ No level found! Create and save Level ' + gameState.level + ' first.');
+                return;
+            }
+
+            try {
+                const levelData = JSON.parse(savedLevel);
+
+                // Validate essential data
+                if (!levelData.grid) {
+                    showMessage('❌ No grid data! Please create the level properly.');
+                    return;
+                }
+                if (!levelData.playerStart) {
+                    showMessage('❌ No Start Point! Please set the Start Point (🟢).');
+                    return;
+                }
+                if (!levelData.goal) {
+                    showMessage('❌ No End Point! Please set the End Point (⭐).');
+                    return;
+                }
+                
+                // Set grid
+                gameState.grid = levelData.grid.map(row => [...row]);
+                gameState.theme = levelData.theme || 'sky';
+                gameState.background = levelData.background || 'none';
+
+                // Resize canvas FIRST
+                gameCanvas.width = gameState.grid[0].length * TILE_SIZE;
+                gameCanvas.height = gameState.grid.length * TILE_SIZE;
+                
+                // Load monsters
+                gameState.monsters = [];
+                if (levelData.monsters && Array.isArray(levelData.monsters)) {
+                    gameState.monsters = levelData.monsters.map(m => ({
+                        x: m.x * TILE_SIZE + 5,
+                        y: m.y * TILE_SIZE + 5,
+                        patrol: m.patrol || [m.x - 3, m.x + 3],
+                        direction: 1,
+                        speed: 1.5,
+                        width: 30,
+                        height: 30,
+                        health: 3
+                    }));
+                }
+
+                // Load collectibles
+                gameState.collectibles = [];
+                
+                if (levelData.keys && Array.isArray(levelData.keys)) {
+                    levelData.keys.forEach(k => {
+                        gameState.collectibles.push({ 
+                            x: k.x * TILE_SIZE + 5, 
+                            y: k.y * TILE_SIZE + 5, 
+                            type: 'key', 
+                            collected: false, 
+                            width: 30, 
+                            height: 30 
+                        });
+                    });
+                }
+                
+                if (levelData.weapons && Array.isArray(levelData.weapons)) {
+                    levelData.weapons.forEach(w => {
+                        gameState.collectibles.push({ 
+                            x: w.x * TILE_SIZE + 5, 
+                            y: w.y * TILE_SIZE + 5, 
+                            type: 'weapon', 
+                            collected: false, 
+                            width: 30, 
+                            height: 30 
+                        });
+                    });
+                }
+                
+                if (levelData.bombs && Array.isArray(levelData.bombs)) {
+                    levelData.bombs.forEach(b => {
+                        gameState.collectibles.push({ 
+                            x: b.x * TILE_SIZE + 5, 
+                            y: b.y * TILE_SIZE + 5, 
+                            type: 'bomb', 
+                            collected: false, 
+                            width: 30, 
+                            height: 30 
+                        });
+                    });
+                }
+                
+                if (levelData.hearts && Array.isArray(levelData.hearts)) {
+                    levelData.hearts.forEach(h => {
+                        gameState.collectibles.push({ 
+                            x: h.x * TILE_SIZE + 5, 
+                            y: h.y * TILE_SIZE + 5, 
+                            type: 'heart', 
+                            collected: false, 
+                            width: 30, 
+                            height: 30 
+                        });
+                    });
+                }
+                
+                if (levelData.coins && Array.isArray(levelData.coins)) {
+                    levelData.coins.forEach(c => {
+                        gameState.collectibles.push({ 
+                            x: c.x * TILE_SIZE + 5, 
+                            y: c.y * TILE_SIZE + 5, 
+                            type: 'coin', 
+                            collected: false, 
+                            width: 30, 
+                            height: 30 
+                        });
+                    });
+                }
+
+                // Load doors
+                gameState.doors = [];
+                if (levelData.doors && Array.isArray(levelData.doors)) {
+                    gameState.doors = levelData.doors.map(d => ({ 
+                        x: d.x, 
+                        y: d.y, 
+                        open: false 
+                    }));
+                }
+                
+                gameState.goalPos = levelData.goal;
+
+                // Set player position
+                if (levelData.playerStart) {
+                    gameState.player.x = levelData.playerStart.x * TILE_SIZE + 5;
+                    gameState.player.y = levelData.playerStart.y * TILE_SIZE + 5;
+                }
+
+                // Reset player state
+                gameState.player.velocityX = 0;
+                gameState.player.velocityY = 0;
+                gameState.player.hasWeapon = false;
+                gameState.player.invincible = false;
+                gameState.player.invincibleTimer = 0;
+                gameState.player.facingRight = true;
+                
+                // Reset game state
+                gameState.keys = 0;
+                gameState.ammo = 0;
+                gameState.bombCount = 0;
+                gameState.health = 5;
+                gameState.maxHealth = 5;
+                gameState.damageTimer = 0;
+                gameState.deaths = 0;
+                gameState.bullets = [];
+                gameState.placedBombs = [];
+                gameState.startTime = Date.now();
+
+                updateGameHUD();
+
+                // Apply background AFTER all setup is complete
+                applyBackground();
+
+                // Apply background multiple times with delays to ensure it sticks
+                setTimeout(() => applyBackground(), 50);
+                setTimeout(() => applyBackground(), 200);
+                setTimeout(() => applyBackground(), 500);
+
+                drawGame();
+
+            } catch (error) {
+                console.error('Error loading level:', error);
+                console.error('Error stack:', error.stack);
+                showMessage('❌ Error: ' + error.message + '<br><small>Press F12 to see console for details</small>');
+            }
+        }
+
+        function updateGameHUD() {
+            document.getElementById('gameLevel').textContent = gameState.level;
+            document.getElementById('gameKeys').textContent = gameState.keys;
+            document.getElementById('gameAmmo').textContent = gameState.ammo;
+            document.getElementById('gameHealth').textContent = gameState.health;
+            document.getElementById('gameDeaths').textContent = gameState.deaths;
+        }
+
+        function restartGameLevel() {
+            loadGameLevel();
+        }
+
+        function nextGameLevel() {
+            if (gameState.level < 10) {
+                gameState.level++;
+                editorState.currentLevel = gameState.level;
+                document.getElementById('levelSelect').value = gameState.level;
+                loadGameLevel();
+            }
+        }
+
+        function prevGameLevel() {
+            if (gameState.level > 1) {
+                gameState.level--;
+                editorState.currentLevel = gameState.level;
+                document.getElementById('levelSelect').value = gameState.level;
+                loadGameLevel();
+            }
+        }
+
+        // Game input
+        const keys = {};
+        document.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+            
+            if (e.key === ' ' && gameState.player.onGround) {
+                gameState.player.velocityY = JUMP_POWER;
+                e.preventDefault();
+            }
+            
+            // Shoot
+            if (e.key.toLowerCase() === 'f' && gameState.player.hasWeapon && gameState.ammo > 0) {
+                gameState.bullets.push({
+                    x: gameState.player.x + (gameState.player.facingRight ? 30 : 0),
+                    y: gameState.player.y + 15,
+                    velocityX: gameState.player.facingRight ? BULLET_SPEED : -BULLET_SPEED,
+                    width: 8,
+                    height: 4
+                });
+                gameState.ammo--;
+                updateGameHUD();
+            }
+            
+            // Place bomb
+            if (e.key.toLowerCase() === 'b' && gameState.bombCount > 0) {
+                const gridX = Math.floor((gameState.player.x + 15) / TILE_SIZE);
+                const gridY = Math.floor((gameState.player.y + 15) / TILE_SIZE);
+                gameState.placedBombs.push({
+                    x: gridX,
+                    y: gridY,
+                    timer: 90 // 1.5 seconds at 60fps
+                });
+                gameState.bombCount--;
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
+        });
+
+        // Game loop
+        function gameLoop() {
+            if (document.getElementById('gameContent').classList.contains('active')) {
+                updateGame();
+                drawGame();
+            }
+            requestAnimationFrame(gameLoop);
+        }
+
+        function updateGame() {
+            // Safety check - don't update if no grid loaded
+            if (!gameState.grid || gameState.grid.length === 0) {
+                return;
+            }
+            
+            const player = gameState.player;
+
+            // Input
+            if (keys['arrowleft'] || keys['a']) {
+                player.velocityX = -MOVE_SPEED;
+                player.facingRight = false;
+            } else if (keys['arrowright'] || keys['d']) {
+                player.velocityX = MOVE_SPEED;
+                player.facingRight = true;
+            } else {
+                player.velocityX *= 0.85;
+            }
+
+            // Gravity
+            player.velocityY += GRAVITY;
+            if (player.velocityY > 15) player.velocityY = 15;
+
+            // Move
+            player.x += player.velocityX;
+            player.y += player.velocityY;
+
+            // Collision
+            player.onGround = false;
+            const gridX = Math.floor(player.x / TILE_SIZE);
+            const gridY = Math.floor(player.y / TILE_SIZE);
+
+            for (let dy = -1; dy <= 2; dy++) {
+                for (let dx = -1; dx <= 2; dx++) {
+                    const checkX = gridX + dx;
+                    const checkY = gridY + dy;
+                    if (checkX >= 0 && checkX < gameState.grid[0].length && checkY >= 0 && checkY < gameState.grid.length) {
+                        const tile = gameState.grid[checkY][checkX];
+                        if (tile === 1 || tile === 2 || tile === 3 || tile === 10) {
+                            const box = {
+                                x: checkX * TILE_SIZE,
+                                y: checkY * TILE_SIZE,
+                                width: TILE_SIZE,
+                                height: TILE_SIZE
+                            };
+                            if (checkCollision(player, box)) {
+                                resolveCollision(player, box);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Update monsters
+            gameState.monsters.forEach((monster, idx) => {
+                monster.x += monster.speed * monster.direction;
+                const gridX = Math.floor(monster.x / TILE_SIZE);
+                if (gridX <= monster.patrol[0] || gridX >= monster.patrol[1]) {
+                    monster.direction *= -1;
+                }
+
+                if (checkCollision(player, monster)) {
+                    gameState.deaths++;
+                    loadGameLevel();
+                }
+            });
+
+            // Lava damage system
+            if (gameState.damageTimer > 0) {
+                gameState.damageTimer--;
+            }
+
+            // Check if player is standing on lava (red block)
+            const playerBottomY = Math.floor((player.y + player.height) / TILE_SIZE);
+            const playerCenterX = Math.floor((player.x + player.width / 2) / TILE_SIZE);
+            
+            if (playerBottomY >= 0 && playerBottomY < gameState.grid.length && 
+                playerCenterX >= 0 && playerCenterX < gameState.grid[0].length) {
+                
+                const tileBelow = gameState.grid[playerBottomY][playerCenterX];
+                
+                // If standing on lava and damage cooldown is over
+                if (tileBelow === 3 && gameState.damageTimer === 0 && player.onGround) {
+                    gameState.health--;
+                    gameState.damageTimer = 60; // 1 second cooldown at 60fps
+                    updateGameHUD();
+                    
+                    // Check if player died
+                    if (gameState.health <= 0) {
+                        gameState.deaths++;
+                        showMessage('💀 You died!');
+                        setTimeout(() => {
+                            loadGameLevel();
+                        }, 1000);
+                        return;
+                    }
+                }
+            }
+
+            // Update bullets
+            gameState.bullets = gameState.bullets.filter(bullet => {
+                bullet.x += bullet.velocityX;
+                
+                // Check monster hit
+                let hitMonster = false;
+                gameState.monsters = gameState.monsters.filter(monster => {
+                    if (checkCollision(bullet, monster)) {
+                        monster.health--;
+                        hitMonster = true;
+                        return monster.health > 0;
+                    }
+                    return true;
+                });
+                
+                if (hitMonster) return false;
+                
+                // Check wall hit
+                const bx = Math.floor(bullet.x / TILE_SIZE);
+                const by = Math.floor(bullet.y / TILE_SIZE);
+                if (bx < 0 || bx >= gameState.grid[0].length || by < 0 || by >= gameState.grid.length) return false;
+                if (gameState.grid[by][bx] === 1) return false;
+                
+                return true;
+            });
+
+            // Update bombs
+            gameState.placedBombs = gameState.placedBombs.filter(bomb => {
+                bomb.timer--;
+                if (bomb.timer <= 0) {
+                    // Explode - destroy ONLY stone blocks (not walls, red blocks, or platforms)
+                    for (let dy = -BOMB_BLAST_RADIUS; dy <= BOMB_BLAST_RADIUS; dy++) {
+                        for (let dx = -BOMB_BLAST_RADIUS; dx <= BOMB_BLAST_RADIUS; dx++) {
+                            const x = bomb.x + dx;
+                            const y = bomb.y + dy;
+                            if (x >= 0 && x < gameState.grid[0].length && y >= 0 && y < gameState.grid.length) {
+                                // Destroy ONLY stone blocks (2) - walls (1) are indestructible
+                                if (gameState.grid[y][x] === 2) {
+                                    gameState.grid[y][x] = 0;
+                                }
+                            }
+                        }
+                    }
+                    return false;
+                }
+                return true;
+            });
+
+            // Collect items
+            gameState.collectibles.forEach(item => {
+                if (!item.collected && checkCollision(player, item)) {
+                    item.collected = true;
+                    if (item.type === 'key') {
+                        gameState.keys++;
+                    } else if (item.type === 'weapon') {
+                        player.hasWeapon = true;
+                        gameState.ammo += 10;
+                    } else if (item.type === 'bomb') {
+                        gameState.bombCount += 3;
+                    }
+                    updateGameHUD();
+                }
+            });
+
+            // Check doors and open with keys
+            gameState.doors.forEach(door => {
+                if (!door.open) {
+                    const doorBox = {
+                        x: door.x * TILE_SIZE,
+                        y: door.y * TILE_SIZE,
+                        width: TILE_SIZE,
+                        height: TILE_SIZE
+                    };
+
+                    // Check collision with door
+                    if (checkCollision(player, doorBox)) {
+                        // If player has keys, open the door
+                        if (gameState.keys > 0) {
+                            door.open = true;
+                            gameState.keys--;
+                            updateGameHUD();
+                            showMessage('🔓 Door Opened!');
+                        } else {
+                            // Push player away if no keys
+                            resolveCollision(player, doorBox);
+                        }
+                    }
+                }
+            });
+
+            // Check goal
+            if (gameState.goalPos) {
+                const goalBox = {
+                    x: gameState.goalPos.x * TILE_SIZE,
+                    y: gameState.goalPos.y * TILE_SIZE,
+                    width: TILE_SIZE,
+                    height: TILE_SIZE
+                };
+                if (checkCollision(player, goalBox)) {
+                    showMessage('🎉 Level Complete!');
+                    setTimeout(() => nextGameLevel(), 1500);
+                }
+            }
+
+            // Update timer
+            gameState.time = Math.floor((Date.now() - gameState.startTime) / 1000);
+            document.getElementById('gameTime').textContent = gameState.time + 's';
+        }
+
+        function checkCollision(a, b) {
+            return a.x < b.x + b.width &&
+                   a.x + a.width > b.x &&
+                   a.y < b.y + b.height &&
+                   a.y + a.height > b.y;
+        }
+
+        function resolveCollision(player, box) {
+            const overlapLeft = (player.x + player.width) - box.x;
+            const overlapRight = (box.x + box.width) - player.x;
+            const overlapTop = (player.y + player.height) - box.y;
+            const overlapBottom = (box.y + box.height) - player.y;
+
+            const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
+
+            if (minOverlap === overlapTop && player.velocityY > 0) {
+                player.y = box.y - player.height;
+                player.velocityY = 0;
+                player.onGround = true;
+            } else if (minOverlap === overlapBottom && player.velocityY < 0) {
+                player.y = box.y + box.height;
+                player.velocityY = 0;
+            } else if (minOverlap === overlapLeft) {
+                player.x = box.x - player.width;
+                player.velocityX = 0;
+            } else if (minOverlap === overlapRight) {
+                player.x = box.x + box.width;
+                player.velocityX = 0;
+            }
+        }
+
+        function drawGame() {
+            // Safety check
+            if (!gameState.grid || gameState.grid.length === 0) {
+                gameCtx.fillStyle = '#2d3748';
+                gameCtx.font = '20px Arial';
+                gameCtx.textAlign = 'center';
+                gameCtx.fillText('No level loaded. Please create a level first.', gameCanvas.width / 2, gameCanvas.height / 2);
+                return;
+            }
+            
+            gameCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+
+            // Draw background
+            gameCtx.fillStyle = '#f0f0f0';
+            gameCtx.fillRect(0, 0, gameCanvas.width, gameCanvas.height);
+
+            // Draw grid
+            gameCtx.strokeStyle = '#e2e8f0';
+            gameCtx.lineWidth = 1;
+            for (let x = 0; x <= gameState.grid[0].length; x++) {
+                gameCtx.beginPath();
+                gameCtx.moveTo(x * TILE_SIZE, 0);
+                gameCtx.lineTo(x * TILE_SIZE, gameState.grid.length * TILE_SIZE);
+                gameCtx.stroke();
+            }
+            for (let y = 0; y <= gameState.grid.length; y++) {
+                gameCtx.beginPath();
+                gameCtx.moveTo(0, y * TILE_SIZE);
+                gameCtx.lineTo(gameState.grid[0].length * TILE_SIZE, y * TILE_SIZE);
+                gameCtx.stroke();
+            }
+
+            // Draw tiles
+            for (let y = 0; y < gameState.grid.length; y++) {
+                for (let x = 0; x < gameState.grid[y].length; x++) {
+                    const tile = gameState.grid[y][x];
+                    const tileX = x * TILE_SIZE;
+                    const tileY = y * TILE_SIZE;
+
+                    if (tile === 1 && blockImages.wall.complete) {
+                        // Draw wall texture
+                        gameCtx.drawImage(blockImages.wall, tileX, tileY, TILE_SIZE, TILE_SIZE);
+                    } else if (tile === 2 && blockImages.stone.complete) {
+                        // Draw stone texture
+                        gameCtx.drawImage(blockImages.stone, tileX, tileY, TILE_SIZE, TILE_SIZE);
+                    } else if (tile === 3 && blockImages.lava.complete) {
+                        // Draw lava texture
+                        gameCtx.drawImage(blockImages.lava, tileX, tileY, TILE_SIZE, TILE_SIZE);
+                    } else if (tile === 10 && blockImages.platform.complete) {
+                        // Draw platform texture
+                        gameCtx.drawImage(blockImages.platform, tileX, tileY, TILE_SIZE, TILE_SIZE);
+                    } else if (tile !== 0) {
+                        // Fallback to solid colors if images not loaded
+                        if (tile === 1) {
+                            gameCtx.fillStyle = '#2d3748';
+                            gameCtx.fillRect(tileX, tileY, TILE_SIZE, TILE_SIZE);
+                        } else if (tile === 2) {
+                            gameCtx.fillStyle = '#4299e1';
+                            gameCtx.fillRect(tileX, tileY, TILE_SIZE, TILE_SIZE);
+                        } else if (tile === 3) {
+                            gameCtx.fillStyle = '#f56565';
+                            gameCtx.fillRect(tileX, tileY, TILE_SIZE, TILE_SIZE);
+                        } else if (tile === 10) {
+                            gameCtx.fillStyle = '#8B4513';
+                            gameCtx.fillRect(tileX, tileY, TILE_SIZE, TILE_SIZE);
+                        }
+                    }
+                }
+            }
+
+            // Draw collectibles
+            gameState.collectibles.forEach(item => {
+                if (!item.collected) {
+                    if (item.type === 'key') {
+                        if (blockImages.key.complete) {
+                            gameCtx.drawImage(blockImages.key, item.x, item.y, 30, 30);
+                        } else {
+                            // Fallback to emoji if image not loaded
+                            gameCtx.fillStyle = '#f6e05e';
+                            gameCtx.beginPath();
+                            gameCtx.arc(item.x + 15, item.y + 15, 12, 0, Math.PI * 2);
+                            gameCtx.fill();
+                            gameCtx.font = '20px Arial';
+                            gameCtx.textAlign = 'center';
+                            gameCtx.fillText('🗝️', item.x + 15, item.y + 21);
+                        }
+                    } else if (item.type === 'weapon') {
+                        gameCtx.fillStyle = '#4299e1';
+                        gameCtx.fillRect(item.x + 3, item.y + 3, 24, 24);
+                        gameCtx.font = '20px Arial';
+                        gameCtx.fillText('🔫', item.x + 15, item.y + 21);
+                    } else if (item.type === 'bomb') {
+                        if (blockImages.bomb.complete) {
+                            gameCtx.drawImage(blockImages.bomb, item.x, item.y, 30, 30);
+                        } else {
+                            // Fallback to emoji if image not loaded
+                            gameCtx.fillStyle = '#ed8936';
+                            gameCtx.beginPath();
+                            gameCtx.arc(item.x + 15, item.y + 15, 15, 0, Math.PI * 2);
+                            gameCtx.fill();
+                            gameCtx.font = '20px Arial';
+                            gameCtx.fillText('💣', item.x + 15, item.y + 21);
+                        }
+                    }
+                }
+            });
+
+            // Draw goal
+            if (gameState.goalPos) {
+                drawStar(gameCtx, gameState.goalPos.x * TILE_SIZE + 20, gameState.goalPos.y * TILE_SIZE + 20, 5, 15, 8, '#fbbf24');
+            }
+
+            // Draw doors
+            gameState.doors.forEach(door => {
+                if (!door.open) {
+                    const doorX = door.x * TILE_SIZE;
+                    const doorY = door.y * TILE_SIZE;
+
+                    if (blockImages.lock.complete) {
+                        gameCtx.drawImage(blockImages.lock, doorX, doorY, TILE_SIZE, TILE_SIZE);
+                    } else {
+                        // Fallback to emoji if image not loaded
+                        gameCtx.fillStyle = '#9f7aea';
+                        gameCtx.fillRect(doorX, doorY, TILE_SIZE, TILE_SIZE);
+                        gameCtx.font = '24px Arial';
+                        gameCtx.textAlign = 'center';
+                        gameCtx.fillText('🔒', doorX + 20, doorY + 26);
+                    }
+                }
+            });
+
+            // Draw monsters
+            gameState.monsters.forEach(monster => {
+                gameCtx.fillStyle = '#e53e3e';
+                gameCtx.fillRect(monster.x, monster.y, 30, 30);
+                gameCtx.font = '24px Arial';
+                gameCtx.textAlign = 'center';
+                gameCtx.fillText('👾', monster.x + 15, monster.y + 23);
+                
+                // Health bar
+                gameCtx.fillStyle = '#00ff00';
+                gameCtx.fillRect(monster.x, monster.y - 5, (monster.health / 3) * 30, 3);
+            });
+
+            // Draw bullets
+            gameState.bullets.forEach(bullet => {
+                gameCtx.fillStyle = '#fbbf24';
+                gameCtx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+            });
+
+            // Draw placed bombs
+            gameState.placedBombs.forEach(bomb => {
+                const bombX = bomb.x * TILE_SIZE;
+                const bombY = bomb.y * TILE_SIZE;
+
+                if (blockImages.bomb.complete) {
+                    // Flash effect with opacity
+                    const flash = Math.floor(bomb.timer / 10) % 2 === 0;
+                    gameCtx.globalAlpha = flash ? 1.0 : 0.6;
+                    gameCtx.drawImage(blockImages.bomb, bombX, bombY, TILE_SIZE, TILE_SIZE);
+                    gameCtx.globalAlpha = 1.0;
+                } else {
+                    // Fallback to emoji with flash effect
+                    const flash = Math.floor(bomb.timer / 10) % 2 === 0;
+                    gameCtx.fillStyle = flash ? '#ed8936' : '#f56565';
+                    gameCtx.beginPath();
+                    gameCtx.arc(bombX + 20, bombY + 20, 15, 0, Math.PI * 2);
+                    gameCtx.fill();
+                    gameCtx.font = '20px Arial';
+                    gameCtx.textAlign = 'center';
+                    gameCtx.fillText('💣', bombX + 20, bombY + 26);
+                }
+            });
+
+            // Draw player
+            const player = gameState.player;
+            
+            // Determine player color based on damage state
+            let playerColor = '#48bb78'; // Normal green
+            if (gameState.damageTimer > 0 && Math.floor(gameState.damageTimer / 10) % 2 === 0) {
+                playerColor = '#f56565'; // Flash red when damaged
+            }
+            
+            // Flashing effect when invincible
+            if (!player.invincible || Math.floor(player.invincibleTimer / 10) % 2 === 0) {
+                gameCtx.fillStyle = playerColor;
+                gameCtx.beginPath();
+                gameCtx.arc(player.x + 15, player.y + 15, 15, 0, Math.PI * 2);
+                gameCtx.fill();
+                
+                if (player.hasWeapon) {
+                    gameCtx.fillStyle = '#2d3748';
+                    gameCtx.fillRect(player.x + (player.facingRight ? 20 : -5), player.y + 12, 10, 4);
+                }
+            }
+        }
+
+        // Initialize
+        initEditor();
+        drawEditor();
+        gameLoop();
+        
+        // Show helpful message on first load
+        setTimeout(() => {
+            const hasSeenTutorial = localStorage.getItem('seenTutorial');
+            if (!hasSeenTutorial) {
+                showMessage('👋 Welcome! Set Start (🟢) and End (⭐) points, then click Test!');
+                localStorage.setItem('seenTutorial', 'true');
+            }
+        }, 500);
+    </script>
+</body>
+</html>
