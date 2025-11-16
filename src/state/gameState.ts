@@ -50,7 +50,8 @@ export function createInitialGameState(): GameState {
       hasWeapon: false,
       facingRight: true
     },
-    startTime: Date.now()
+    startTime: Date.now(),
+    animationFrame: 0
   };
 }
 

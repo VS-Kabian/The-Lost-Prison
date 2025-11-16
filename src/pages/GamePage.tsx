@@ -29,6 +29,8 @@ export default function GamePage(): JSX.Element {
   const gameCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const keysRef = useRef<KeyMap>({});
   const gameStateRef = useRef<GameState>(gameState);
+  const levelCompleteRef = useRef<boolean>(false);
+  const playerDeadRef = useRef<boolean>(false);
 
   useEffect(() => {
     gameStateRef.current = gameState;
@@ -70,6 +72,8 @@ export default function GamePage(): JSX.Element {
     const levelData = levelToLevelData(level);
     const newGameState = buildGameStateFromLevel(levelData, level.level_number);
     setGameState(newGameState);
+    levelCompleteRef.current = false;
+    playerDeadRef.current = false;
   };
 
   const handleNextLevel = () => {
@@ -120,7 +124,8 @@ export default function GamePage(): JSX.Element {
       setGameState(prev => {
         const { state: updatedState, events } = updateGameFrame(prev, keysRef.current);
 
-        if (events.playerDied) {
+        if (events.playerDied && !playerDeadRef.current) {
+          playerDeadRef.current = true;
           setTimeout(() => {
             if (currentLevel) {
               loadLevel(currentLevel);
@@ -128,7 +133,8 @@ export default function GamePage(): JSX.Element {
           }, 500);
         }
 
-        if (events.levelComplete) {
+        if (events.levelComplete && !levelCompleteRef.current) {
+          levelCompleteRef.current = true;
           setTimeout(() => {
             handleNextLevel();
           }, 1000);
@@ -266,76 +272,75 @@ export default function GamePage(): JSX.Element {
 
   return (
     <div className="flex h-screen flex-col bg-slate-100 overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between bg-gradient-to-br from-brandStart to-brandEnd px-6 py-3 text-white shadow-lg flex-shrink-0">
-        <h1 className="flex items-center gap-3 text-2xl font-bold">
+      {/* Compact Status Bar */}
+      <div className="flex items-center justify-between bg-gradient-to-br from-brandStart to-brandEnd px-3 py-1.5 text-white shadow-lg flex-shrink-0">
+        {/* Left: Title */}
+        <h1 className="flex items-center gap-2 text-lg font-bold">
           <span>🎮</span>
           <span>The Lost Prison</span>
         </h1>
-        <div className="flex gap-3">
-          <button
-            onClick={() => setShowControls(!showControls)}
-            className="rounded-lg bg-white/20 px-4 py-2 font-semibold hover:bg-white/30 transition"
-          >
-            {showControls ? "🎮 Hide Controls" : "🎮 Show Controls"}
-          </button>
-          <button
-            onClick={() => setShowLevelSelector(true)}
-            className="rounded-lg bg-white/20 px-4 py-2 font-semibold hover:bg-white/30 transition"
-          >
-            📋 Level Select
-          </button>
-        </div>
-      </div>
 
-      {/* Game Stats and Controls */}
-      <div className="flex flex-wrap items-center justify-center gap-3 bg-slate-800 px-4 py-3 text-white flex-shrink-0">
-        <div className="rounded-lg bg-purple-600 px-4 py-2 font-bold">
-          <span className="text-xs">LEVEL</span>
-          <div className="text-xl">{currentLevel?.level_number || 1}</div>
-        </div>
-        <div className="rounded-lg bg-yellow-600 px-4 py-2 font-bold">
-          <span className="text-xs">🔑 KEYS</span>
-          <div className="text-xl">{gameState.keys}</div>
-        </div>
-        <div className="rounded-lg bg-blue-600 px-4 py-2 font-bold">
-          <span className="text-xs">🔫 AMMO</span>
-          <div className="text-xl">{gameState.ammo}</div>
-        </div>
-        <div className="rounded-lg bg-red-600 px-4 py-2 font-bold">
-          <span className="text-xs">❤️ HEALTH</span>
-          <div className="text-xl">{gameState.health}</div>
-        </div>
-        <div className="rounded-lg bg-indigo-600 px-4 py-2 font-bold">
-          <span className="text-xs">⏱️ TIME</span>
-          <div className="text-xl">{gameState.time}s</div>
-        </div>
-        <div className="rounded-lg bg-slate-600 px-4 py-2 font-bold">
-          <span className="text-xs">💀 DEATHS</span>
-          <div className="text-xl">{gameState.deaths}</div>
+        {/* Center: Stats */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 rounded bg-purple-600/80 px-2 py-1 text-xs font-semibold">
+            <span className="opacity-70">LVL</span>
+            <span>{currentLevel?.level_number || 1}</span>
+          </div>
+          <div className="flex items-center gap-1.5 rounded bg-yellow-600/80 px-2 py-1 text-xs font-semibold">
+            <span>🔑</span>
+            <span>{gameState.keys}</span>
+          </div>
+          <div className="flex items-center gap-1.5 rounded bg-blue-600/80 px-2 py-1 text-xs font-semibold">
+            <span>🔫</span>
+            <span>{gameState.ammo}</span>
+          </div>
+          <div className="flex items-center gap-1.5 rounded bg-red-600/80 px-2 py-1 text-xs font-semibold">
+            <span>❤️</span>
+            <span>{gameState.health}</span>
+          </div>
+          <div className="flex items-center gap-1.5 rounded bg-indigo-600/80 px-2 py-1 text-xs font-semibold">
+            <span>⏱️</span>
+            <span>{gameState.time}s</span>
+          </div>
+          <div className="flex items-center gap-1.5 rounded bg-slate-600/80 px-2 py-1 text-xs font-semibold">
+            <span>💀</span>
+            <span>{gameState.deaths}</span>
+          </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="ml-auto flex gap-2">
+        {/* Right: Action Buttons */}
+        <div className="flex gap-1.5">
           <button
             onClick={handleRestart}
-            className="rounded-lg bg-slate-600 px-3 py-2 text-sm font-semibold hover:bg-slate-500 transition"
+            className="rounded bg-white/20 px-2 py-1 text-xs font-semibold hover:bg-white/30 transition"
           >
             🔄 Restart
           </button>
           <button
             onClick={handlePrevLevel}
             disabled={!currentLevel || publishedLevels.findIndex(l => l.id === currentLevel.id) === 0}
-            className="rounded-lg bg-purple-600 px-3 py-2 text-sm font-semibold hover:bg-purple-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="rounded bg-white/20 px-2 py-1 text-xs font-semibold hover:bg-white/30 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             ⏮️ Prev
           </button>
           <button
             onClick={handleNextLevel}
             disabled={!currentLevel || publishedLevels.findIndex(l => l.id === currentLevel.id) === publishedLevels.length - 1}
-            className="rounded-lg bg-purple-600 px-3 py-2 text-sm font-semibold hover:bg-purple-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="rounded bg-white/20 px-2 py-1 text-xs font-semibold hover:bg-white/30 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             ⏭️ Next
+          </button>
+          <button
+            onClick={() => setShowControls(!showControls)}
+            className="rounded bg-white/20 px-2 py-1 text-xs font-semibold hover:bg-white/30 transition"
+          >
+            {showControls ? "🎮 Hide" : "🎮 Controls"}
+          </button>
+          <button
+            onClick={() => setShowLevelSelector(true)}
+            className="rounded bg-white/20 px-2 py-1 text-xs font-semibold hover:bg-white/30 transition"
+          >
+            📋 Levels
           </button>
         </div>
       </div>

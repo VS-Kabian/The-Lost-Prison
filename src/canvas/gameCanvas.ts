@@ -105,10 +105,14 @@ export function drawGameCanvas(
         ctx.fillText("🗝️", item.x + 15, item.y + 21);
       }
     } else if (item.type === "weapon") {
-      ctx.fillStyle = "#4299e1";
-      ctx.fillRect(item.x + 3, item.y + 3, 24, 24);
-      ctx.font = "20px Arial";
-      ctx.fillText("🔫", item.x + 15, item.y + 21);
+      if (textures.weapon?.complete) {
+        ctx.drawImage(textures.weapon, item.x, item.y, 30, 30);
+      } else {
+        ctx.fillStyle = "#4299e1";
+        ctx.fillRect(item.x + 3, item.y + 3, 24, 24);
+        ctx.font = "20px Arial";
+        ctx.fillText("🔫", item.x + 15, item.y + 21);
+      }
     } else if (item.type === "bomb") {
       if (textures.bomb?.complete) {
         ctx.drawImage(textures.bomb, item.x, item.y, 30, 30);
@@ -130,7 +134,25 @@ export function drawGameCanvas(
   });
 
   if (state.goalPos) {
-    drawStar(ctx, state.goalPos.x * TILE_SIZE + 20, state.goalPos.y * TILE_SIZE + 20, 5, 15, 8, "#fbbf24");
+    const goalX = state.goalPos.x * TILE_SIZE;
+    const goalY = state.goalPos.y * TILE_SIZE;
+
+    if (textures.goal?.complete) {
+      // Draw the goal flag image (smaller and centered)
+      const goalSize = 32; // Reduced from 40
+      const offset = (TILE_SIZE - goalSize) / 2; // Center it
+      ctx.drawImage(textures.goal, goalX + offset, goalY + offset, goalSize, goalSize);
+    } else {
+      // Fallback: Draw the star and text
+      ctx.strokeStyle = "rgba(251, 191, 36, 0.5)";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(goalX, goalY, TILE_SIZE, TILE_SIZE);
+      drawStar(ctx, goalX + 20, goalY + 20, 5, 20, 10, "#fbbf24");
+      ctx.fillStyle = "#fbbf24";
+      ctx.font = "bold 12px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("GOAL", goalX + 20, goalY - 5);
+    }
   }
 
   state.doors.forEach((door) => {
@@ -149,11 +171,23 @@ export function drawGameCanvas(
   });
 
   state.monsters.forEach((monster) => {
-    ctx.fillStyle = "#e53e3e";
-    ctx.fillRect(monster.x, monster.y, 30, 30);
-    ctx.font = "24px Arial";
-    ctx.textAlign = "center";
-    ctx.fillText("👾", monster.x + 15, monster.y + 23);
+    // Blinking animation: eyes closed for 3-5 frames every 40 frames
+    const blinkCycle = state.animationFrame % 40;
+    const isBlinking = blinkCycle >= 36 && blinkCycle <= 39;
+    const monsterImage = isBlinking ? textures.monsterClose : textures.monsterOpen;
+
+    if (monsterImage?.complete) {
+      ctx.drawImage(monsterImage, monster.x, monster.y, 30, 30);
+    } else {
+      // Fallback to emoji
+      ctx.fillStyle = "#e53e3e";
+      ctx.fillRect(monster.x, monster.y, 30, 30);
+      ctx.font = "24px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("👾", monster.x + 15, monster.y + 23);
+    }
+
+    // Health bar
     ctx.fillStyle = "#00ff00";
     ctx.fillRect(monster.x, monster.y - 5, (monster.health / 3) * 30, 3);
   });
@@ -184,20 +218,88 @@ export function drawGameCanvas(
 
   const player = state.player;
   const flashDamage = state.damageTimer > 0 && Math.floor(state.damageTimer / 10) % 2 === 0;
-  let playerColor = "#48bb78";
-  if (flashDamage) {
-    playerColor = "#f56565";
+
+  // Check if player is at goal for visual feedback
+  let atGoal = false;
+  if (state.goalPos) {
+    const goalBox = {
+      x: state.goalPos.x * TILE_SIZE,
+      y: state.goalPos.y * TILE_SIZE,
+      width: TILE_SIZE,
+      height: TILE_SIZE
+    };
+    atGoal = (
+      player.x < goalBox.x + goalBox.width &&
+      player.x + player.width > goalBox.x &&
+      player.y < goalBox.y + goalBox.height &&
+      player.y + player.height > goalBox.y
+    );
+  }
+
+  // Draw "LEVEL COMPLETE!" message if at goal
+  if (atGoal) {
+    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+    ctx.fillRect(0, ctx.canvas.height / 2 - 40, ctx.canvas.width, 80);
+
+    ctx.fillStyle = "#fbbf24";
+    ctx.font = "bold 36px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("⭐ LEVEL COMPLETE! ⭐", ctx.canvas.width / 2, ctx.canvas.height / 2);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "16px Arial";
+    ctx.fillText("Loading next level...", ctx.canvas.width / 2, ctx.canvas.height / 2 + 30);
   }
 
   const isVisible = !player.invincible || Math.floor((player.invincibleTimer ?? 0) / 10) % 2 === 0;
   if (isVisible) {
-    ctx.fillStyle = playerColor;
-    ctx.beginPath();
-    ctx.arc(player.x + 15, player.y + 15, 15, 0, Math.PI * 2);
-    ctx.fill();
-    if (player.hasWeapon) {
-      ctx.fillStyle = "#2d3748";
-      ctx.fillRect(player.x + (player.facingRight ? 20 : -5), player.y + 12, 10, 4);
+    // Blinking animation: eyes closed for 3-5 frames every 40 frames
+    const blinkCycle = state.animationFrame % 40;
+    const isBlinking = blinkCycle >= 36 && blinkCycle <= 39;
+    const playerImage = isBlinking ? textures.playerClose : textures.playerOpen;
+
+    if (playerImage?.complete) {
+      // Save context for flipping
+      ctx.save();
+
+      // Apply damage flash tint
+      if (flashDamage) {
+        ctx.globalAlpha = 0.7;
+        ctx.fillStyle = "#f56565";
+        ctx.fillRect(player.x, player.y, player.width, player.height);
+        ctx.globalAlpha = 1;
+      }
+
+      // Flip image horizontally if facing left
+      if (!player.facingRight) {
+        ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
+        ctx.scale(-1, 1);
+        ctx.drawImage(playerImage, -player.width / 2, -player.height / 2, player.width, player.height);
+      } else {
+        ctx.drawImage(playerImage, player.x, player.y, player.width, player.height);
+      }
+
+      ctx.restore();
+
+      // Draw weapon indicator
+      if (player.hasWeapon) {
+        ctx.fillStyle = "#2d3748";
+        ctx.fillRect(player.x + (player.facingRight ? 20 : -5), player.y + 12, 10, 4);
+      }
+    } else {
+      // Fallback to green circle if textures not loaded
+      let playerColor = "#48bb78";
+      if (flashDamage) {
+        playerColor = "#f56565";
+      }
+      ctx.fillStyle = playerColor;
+      ctx.beginPath();
+      ctx.arc(player.x + 15, player.y + 15, 15, 0, Math.PI * 2);
+      ctx.fill();
+      if (player.hasWeapon) {
+        ctx.fillStyle = "#2d3748";
+        ctx.fillRect(player.x + (player.facingRight ? 20 : -5), player.y + 12, 10, 4);
+      }
     }
   }
 }

@@ -146,5 +146,6 @@ export interface GameState {
   goalPos: GridPosition | null;
   player: PlayerState;
   startTime: number;
+  animationFrame: number;
 }
 

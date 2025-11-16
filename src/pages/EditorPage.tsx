@@ -167,7 +167,12 @@ export default function EditorPage(): JSX.Element {
       setCurrentLevelId(savedLevel.id);
       setIsPublished(savedLevel.is_published);
       setLastSaveTime(now); // Update last save time after successful save
-      showMessage("✅ Level saved to cloud!");
+
+      if (savedLevel.is_published) {
+        showMessage("✅ Level saved to cloud!");
+      } else {
+        showMessage("✅ Level saved! Click 📢 Publish to make it visible to players");
+      }
     } catch (error: any) {
       logError("Error saving level", error);
       showMessage("❌ Failed to save level");
@@ -550,11 +555,17 @@ export default function EditorPage(): JSX.Element {
               ) : (
                 <button
                   onClick={handlePublishLevel}
-                  className="w-full rounded-lg bg-blue-500 py-2 text-sm font-semibold text-white hover:bg-blue-600"
+                  className="w-full rounded-lg bg-blue-500 py-2 text-sm font-semibold text-white hover:bg-blue-600 shadow-lg animate-pulse"
+                  disabled={!currentLevelId}
                 >
-                  📢 Publish
+                  📢 Publish (Make Visible!)
                 </button>
               )}
+
+              {/* Publish Status Indicator */}
+              <div className={`text-xs font-semibold text-center py-1 rounded ${isPublished ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                {isPublished ? '✅ Published - Players can see this' : '⚠️ Not Published - Save first, then publish'}
+              </div>
 
               <button
                 onClick={handleTestLevel}

@@ -83,19 +83,34 @@ export function drawEditorCanvas(
   }
 
   state.monsters.forEach((monster) => {
-    ctx.fillStyle = "#e53e3e";
-    ctx.fillRect(monster.x * TILE_SIZE + 5, monster.y * TILE_SIZE + 5, 30, 30);
-    ctx.font = "24px Arial";
-    ctx.textAlign = "center";
-    ctx.fillText("👾", monster.x * TILE_SIZE + 20, monster.y * TILE_SIZE + 28);
+    const monsterX = monster.x * TILE_SIZE + 5;
+    const monsterY = monster.y * TILE_SIZE + 5;
+
+    if (textures.monsterOpen?.complete) {
+      ctx.drawImage(textures.monsterOpen, monsterX, monsterY, 30, 30);
+    } else {
+      // Fallback to emoji
+      ctx.fillStyle = "#e53e3e";
+      ctx.fillRect(monsterX, monsterY, 30, 30);
+      ctx.font = "24px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("👾", monster.x * TILE_SIZE + 20, monster.y * TILE_SIZE + 28);
+    }
   });
 
   state.weapons.forEach((weapon) => {
-    ctx.fillStyle = "#4299e1";
-    ctx.fillRect(weapon.x * TILE_SIZE + 8, weapon.y * TILE_SIZE + 8, 24, 24);
-    ctx.font = "20px Arial";
-    ctx.textAlign = "center";
-    ctx.fillText("🔫", weapon.x * TILE_SIZE + 20, weapon.y * TILE_SIZE + 26);
+    const weaponX = weapon.x * TILE_SIZE;
+    const weaponY = weapon.y * TILE_SIZE;
+
+    if (textures.weapon?.complete) {
+      ctx.drawImage(textures.weapon, weaponX + 5, weaponY + 5, 30, 30);
+    } else {
+      ctx.fillStyle = "#4299e1";
+      ctx.fillRect(weaponX + 8, weaponY + 8, 24, 24);
+      ctx.font = "20px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("🔫", weaponX + 20, weaponY + 26);
+    }
   });
 
   state.bombs.forEach((bomb) => {
@@ -145,14 +160,32 @@ export function drawEditorCanvas(
   });
 
   if (state.goal) {
-    drawStar(ctx, state.goal.x * TILE_SIZE + 20, state.goal.y * TILE_SIZE + 20, 5, 15, 8, "#fbbf24");
+    const goalX = state.goal.x * TILE_SIZE;
+    const goalY = state.goal.y * TILE_SIZE;
+
+    if (textures.goal?.complete) {
+      // Draw the goal flag image (smaller and centered)
+      const goalSize = 32; // Reduced from 40
+      const offset = (TILE_SIZE - goalSize) / 2; // Center it
+      ctx.drawImage(textures.goal, goalX + offset, goalY + offset, goalSize, goalSize);
+    } else {
+      // Fallback: Draw the star
+      drawStar(ctx, goalX + 20, goalY + 20, 5, 15, 8, "#fbbf24");
+    }
   }
 
   if (state.playerStart) {
-    ctx.fillStyle = "#48bb78";
-    ctx.beginPath();
-    ctx.arc(state.playerStart.x * TILE_SIZE + 20, state.playerStart.y * TILE_SIZE + 20, 15, 0, Math.PI * 2);
-    ctx.fill();
+    const playerX = state.playerStart.x * TILE_SIZE + 5;
+    const playerY = state.playerStart.y * TILE_SIZE + 5;
+
+    if (textures.playerOpen?.complete) {
+      ctx.drawImage(textures.playerOpen, playerX, playerY, 30, 30);
+    } else {
+      ctx.fillStyle = "#48bb78";
+      ctx.beginPath();
+      ctx.arc(playerX + 15, playerY + 15, 15, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 }
 

@@ -251,14 +251,30 @@ function collectItems(state: GameState, player: PlayerState): void {
 }
 
 function handleGoal(state: GameState, player: PlayerState): boolean {
-  if (!state.goalPos) return false;
+  if (!state.goalPos) {
+    console.log("No goal position set!");
+    return false;
+  }
+
   const goalBox = {
     x: state.goalPos.x * TILE_SIZE,
     y: state.goalPos.y * TILE_SIZE,
     width: TILE_SIZE,
     height: TILE_SIZE
   };
-  return checkCollision(player, goalBox);
+
+  const collision = checkCollision(player, goalBox);
+
+  if (collision) {
+    console.log("🎯 GOAL REACHED!", {
+      playerPos: { x: player.x, y: player.y },
+      goalPos: state.goalPos,
+      goalBox,
+      playerBox: { x: player.x, y: player.y, width: player.width, height: player.height }
+    });
+  }
+
+  return collision;
 }
 
 export function updateGameFrame(state: GameState, keys: KeyMap): {
@@ -272,7 +288,9 @@ export function updateGameFrame(state: GameState, keys: KeyMap): {
   const nextState = cloneState(state);
   const player = nextState.player;
 
-  const horizontalDirection = keys.arrowleft || keys.a ? -1 : keys.arrowright || keys.d ? 1 : 0;
+  const horizontalDirection =
+    keys.ArrowLeft || keys.a || keys.A ? -1 :
+    keys.ArrowRight || keys.d || keys.D ? 1 : 0;
   movePlayerHorizontal(player, horizontalDirection as -1 | 0 | 1);
 
   applyGravity(player);
@@ -314,6 +332,7 @@ export function updateGameFrame(state: GameState, keys: KeyMap): {
   const levelComplete = handleGoal(nextState, player);
 
   nextState.time = Math.floor((Date.now() - nextState.startTime) / 1000);
+  nextState.animationFrame = (nextState.animationFrame + 1) % 1000;
 
   return {
     state: nextState,
