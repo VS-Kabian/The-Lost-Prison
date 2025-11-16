@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTextures } from "../hooks/useTextures";
+import { useAudio } from "../hooks/useAudio";
 import { drawGameCanvas } from "../canvas/gameCanvas";
 import {
   buildGameStateFromLevel,
@@ -24,7 +25,9 @@ export default function GamePage(): JSX.Element {
   const [loading, setLoading] = useState(true);
   const [showLevelSelector, setShowLevelSelector] = useState(false);
   const [showControls, setShowControls] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
   const { textures } = useTextures();
+  const { playSound, playBackgroundMusic, stopBackgroundMusic, setMuted, enableAudio, enabled, loaded } = useAudio();
 
   const gameCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const keysRef = useRef<KeyMap>({});
@@ -48,6 +51,33 @@ export default function GamePage(): JSX.Element {
       document.body.style.overflow = 'auto';
     };
   }, []);
+
+  // Auto-enable audio on first user interaction
+  useEffect(() => {
+    const handleFirstInteraction = async () => {
+      if (!enabled) {
+        await enableAudio();
+        if (currentLevel) {
+          playBackgroundMusic();
+        }
+      }
+    };
+
+    window.addEventListener('click', handleFirstInteraction, { once: true });
+    window.addEventListener('keydown', handleFirstInteraction, { once: true });
+
+    return () => {
+      window.removeEventListener('click', handleFirstInteraction);
+      window.removeEventListener('keydown', handleFirstInteraction);
+    };
+  }, [enabled, currentLevel, enableAudio, playBackgroundMusic]);
+
+  // Auto-play music when audio is enabled and level is loaded
+  useEffect(() => {
+    if (enabled && currentLevel) {
+      playBackgroundMusic();
+    }
+  }, [enabled, currentLevel, playBackgroundMusic]);
 
   const loadPublishedLevels = async () => {
     try {
@@ -74,6 +104,10 @@ export default function GamePage(): JSX.Element {
     setGameState(newGameState);
     levelCompleteRef.current = false;
     playerDeadRef.current = false;
+    // Start background music if audio is already enabled
+    if (enabled) {
+      playBackgroundMusic();
+    }
   };
 
   const handleNextLevel = () => {
@@ -124,8 +158,20 @@ export default function GamePage(): JSX.Element {
       setGameState(prev => {
         const { state: updatedState, events } = updateGameFrame(prev, keysRef.current);
 
+        // Play sound effects based on events
+        if (events.itemCollected) {
+          playSound("itemPick");
+        }
+        if (events.bombExploded) {
+          playSound("boom");
+        }
+        if (events.tookDamage) {
+          playSound("stricks");
+        }
+
         if (events.playerDied && !playerDeadRef.current) {
           playerDeadRef.current = true;
+          playSound("playerOut");
           setTimeout(() => {
             if (currentLevel) {
               loadLevel(currentLevel);
@@ -165,6 +211,7 @@ export default function GamePage(): JSX.Element {
 
       if (e.key === " " && gameStateRef.current.player.onGround) {
         e.preventDefault();
+        playSound("jump");
         setGameState(prev => {
           const next = { ...prev, player: { ...prev.player } };
           jump(next.player);
@@ -174,6 +221,7 @@ export default function GamePage(): JSX.Element {
 
       if (e.key === "f" || e.key === "F") {
         if (gameStateRef.current.player.hasWeapon && gameStateRef.current.ammo > 0) {
+          playSound("gunShoot");
           setGameState(prev => ({
             ...prev,
             bullets: [...prev.bullets, createPlayerBullet(prev.player)],
@@ -184,6 +232,7 @@ export default function GamePage(): JSX.Element {
 
       if (e.key === "b" || e.key === "B") {
         if (gameStateRef.current.bombCount > 0) {
+          playSound("itemPick");
           setGameState(prev => ({
             ...prev,
             placedBombs: [...prev.placedBombs, createPlacedBomb(prev.player)],
@@ -341,6 +390,17 @@ export default function GamePage(): JSX.Element {
             className="rounded bg-white/20 px-2 py-1 text-xs font-semibold hover:bg-white/30 transition"
           >
             📋 Levels
+          </button>
+          <button
+            onClick={() => {
+              const newMutedState = !isMuted;
+              setIsMuted(newMutedState);
+              setMuted(newMutedState);
+            }}
+            className="rounded bg-white/20 px-2 py-1 text-xs font-semibold hover:bg-white/30 transition"
+            title={isMuted ? "Unmute sound" : "Mute sound"}
+          >
+            {isMuted ? "🔇" : "🔊"}
           </button>
         </div>
       </div>

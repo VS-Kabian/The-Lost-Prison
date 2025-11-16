@@ -13,6 +13,8 @@ export interface GameUpdateEvents {
   playerDied: boolean;
   doorOpened: boolean;
   tookDamage: boolean;
+  itemCollected: boolean;
+  bombExploded: boolean;
 }
 
 export type KeyMap = Record<string, boolean>;
@@ -118,7 +120,8 @@ function handleTileCollisions(state: GameState, player: PlayerState): void {
 }
 
 function updateMonsters(state: GameState, player: PlayerState): boolean {
-  let playerKilled = false;
+  let tookDamage = false;
+
   state.monsters.forEach((monster) => {
     // Store original position
     const originalX = monster.x;
@@ -172,13 +175,17 @@ function updateMonsters(state: GameState, player: PlayerState): boolean {
       monster.x = originalX; // Reset to original position
     }
 
-    // Check collision with player
+    // Check collision with player - deal 1 damage with cooldown
     if (checkCollision(player, monster)) {
-      state.deaths += 1;
-      playerKilled = true;
+      if (state.damageTimer === 0) {
+        state.health -= 1;
+        state.damageTimer = 60; // 1 second cooldown (60 frames)
+        tookDamage = true;
+      }
     }
   });
-  return playerKilled;
+
+  return tookDamage;
 }
 
 function handleLavaDamage(state: GameState, player: PlayerState): boolean {
@@ -230,10 +237,12 @@ function openDoorIfPossible(state: GameState, player: PlayerState): boolean {
   return openedDoor;
 }
 
-function collectItems(state: GameState, player: PlayerState): void {
+function collectItems(state: GameState, player: PlayerState): boolean {
+  let collected = false;
   state.collectibles.forEach((item) => {
     if (!item.collected && checkCollision(player, item)) {
       item.collected = true;
+      collected = true;
       if (item.type === "key") {
         state.keys += 1;
       } else if (item.type === "weapon") {
@@ -248,6 +257,7 @@ function collectItems(state: GameState, player: PlayerState): void {
       }
     }
   });
+  return collected;
 }
 
 function handleGoal(state: GameState, player: PlayerState): boolean {
@@ -282,7 +292,7 @@ export function updateGameFrame(state: GameState, keys: KeyMap): {
   events: GameUpdateEvents;
 } {
   if (!state.grid.length) {
-    return { state, events: { levelComplete: false, playerDied: false, doorOpened: false, tookDamage: false } };
+    return { state, events: { levelComplete: false, playerDied: false, doorOpened: false, tookDamage: false, itemCollected: false, bombExploded: false } };
   }
 
   const nextState = cloneState(state);
@@ -300,32 +310,33 @@ export function updateGameFrame(state: GameState, keys: KeyMap): {
 
   handleTileCollisions(nextState, player);
 
-  const playerKilled = updateMonsters(nextState, player);
-  if (playerKilled) {
-    return {
-      state: nextState,
-      events: { levelComplete: false, playerDied: true, doorOpened: false, tookDamage: false }
-    };
-  }
+  // Handle monster damage
+  const monsterDamage = updateMonsters(nextState, player);
 
-  const tookDamage = handleLavaDamage(nextState, player);
+  // Handle lava damage
+  const lavaDamage = handleLavaDamage(nextState, player);
+
+  // Combine damage from both sources
+  const tookDamage = monsterDamage || lavaDamage;
+
+  // Check if player died from damage
   if (tookDamage && nextState.health <= 0) {
     nextState.deaths += 1;
     return {
       state: nextState,
-      events: { levelComplete: false, playerDied: true, doorOpened: false, tookDamage: true }
+      events: { levelComplete: false, playerDied: true, doorOpened: false, tookDamage: true, itemCollected: false, bombExploded: false }
     };
   }
 
   const doorOpened = openDoorIfPossible(nextState, player);
 
-  collectItems(nextState, player);
+  const itemCollected = collectItems(nextState, player);
 
   const { bullets, monsters } = updateBullets(nextState.bullets, nextState.grid, nextState.monsters);
   nextState.bullets = bullets;
   nextState.monsters = monsters;
 
-  const { bombs, grid } = updatePlacedBombs(nextState.placedBombs, nextState.grid);
+  const { bombs, grid, exploded: bombExploded } = updatePlacedBombs(nextState.placedBombs, nextState.grid);
   nextState.placedBombs = bombs;
   nextState.grid = grid;
 
@@ -340,7 +351,9 @@ export function updateGameFrame(state: GameState, keys: KeyMap): {
       levelComplete,
       playerDied: false,
       doorOpened,
-      tookDamage
+      tookDamage,
+      itemCollected,
+      bombExploded
     }
   };
 }

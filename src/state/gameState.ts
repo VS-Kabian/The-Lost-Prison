@@ -27,8 +27,8 @@ export function createInitialGameState(): GameState {
     bombCount: 0,
     time: 0,
     deaths: 0,
-    health: 5,
-    maxHealth: 5,
+    health: 6,
+    maxHealth: 6,
     damageTimer: 0,
     background: "none",
     grid: [],
@@ -246,13 +246,16 @@ export function updateBullets(bullets: BulletState[], grid: number[][], monsters
 export function updatePlacedBombs(placedBombs: PlacedBomb[], grid: number[][]): {
   bombs: PlacedBomb[];
   grid: number[][];
+  exploded: boolean;
 } {
   const nextGrid = grid.map((row) => [...row]);
   const activeBombs: PlacedBomb[] = [];
+  let exploded = false;
 
   placedBombs.forEach((bomb) => {
     const nextTimer = bomb.timer - 1;
     if (nextTimer <= 0) {
+      exploded = true;
       for (let dy = -BOMB_BLAST_RADIUS; dy <= BOMB_BLAST_RADIUS; dy++) {
         for (let dx = -BOMB_BLAST_RADIUS; dx <= BOMB_BLAST_RADIUS; dx++) {
           const x = bomb.x + dx;
@@ -275,7 +278,8 @@ export function updatePlacedBombs(placedBombs: PlacedBomb[], grid: number[][]): 
 
   return {
     bombs: activeBombs,
-    grid: nextGrid
+    grid: nextGrid,
+    exploded
   };
 }
 
