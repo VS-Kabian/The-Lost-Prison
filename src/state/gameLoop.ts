@@ -207,6 +207,9 @@ function handleLavaDamage(state: GameState, player: PlayerState): boolean {
     if (tileBelow === TileType.Lava && player.onGround) {
       state.health -= 1;
       state.damageTimer = 60;
+      // Trigger shake effect
+      player.shaking = true;
+      player.shakeTimer = 30; // Shake for 30 frames (~0.5 seconds)
       return true;
     }
   }
@@ -344,6 +347,15 @@ export function updateGameFrame(state: GameState, keys: KeyMap): {
 
   nextState.time = Math.floor((Date.now() - nextState.startTime) / 1000);
   nextState.animationFrame = (nextState.animationFrame + 1) % 1000;
+
+  // Update shake timer
+  if (player.shakeTimer !== undefined && player.shakeTimer > 0) {
+    player.shakeTimer -= 1;
+    if (player.shakeTimer <= 0) {
+      player.shaking = false;
+      player.shakeTimer = 0;
+    }
+  }
 
   return {
     state: nextState,

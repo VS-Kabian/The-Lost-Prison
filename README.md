@@ -21,11 +21,6 @@ The Lost Prison is a pixel-art platformer where players navigate through dangero
 - **Combat** - Monsters with patrol routes, Weapons with ammo, Bombs with blast radius
 - **Player Stats** - Health, Ammo, Bomb count, Keys, Deaths, Time tracking
 
-## How to Play
-**Movement:** Arrow Keys or A/D to move left/right
-**Jump:** Spacebar (only when on ground)
-**Shoot:** F key (requires weapon & ammo)
-**Place Bomb:** B key (destroys stone blocks only)
 
 **Objective:** Navigate from the green player start to the gold star goal while avoiding monsters and lava.
 
@@ -61,33 +56,6 @@ Game runs at http://localhost:5173
 pnpm run build    # Creates optimized build in dist/
 pnpm run preview  # Preview production build locally
 ```
-
-## Game Mechanics
-
-**Physics:**
-- Gravity: 0.5 pixels/frame
-- Jump Power: -9.1 pixels/frame
-- Move Speed: 4 pixels/frame
-- Tile Size: 40×40 pixels
-
-**Collisions:**
-- AABB (Axis-Aligned Bounding Box) detection
-- Invisible boundary walls prevent falling off grid
-- Monsters reverse direction when hitting walls
-
-**Bomb System:**
-- 90-frame countdown timer (1.5 seconds)
-- Blast radius: 2 tiles in all directions
-- Only destroys **Stone blocks** (not walls, platforms, or lava)
-
-**Monster AI:**
-- Simple patrol behavior between set boundaries
-- Reverses direction at patrol edges or walls
-- Instant death on player contact
-
-**Damage System:**
-- Lava: 1 HP per second with 60-frame cooldown
-- Monsters: Instant death and level restart
 
 
 ## Scripts

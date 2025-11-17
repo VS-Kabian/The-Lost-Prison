@@ -253,6 +253,10 @@ export function drawGameCanvas(
 
   const isVisible = !player.invincible || Math.floor((player.invincibleTimer ?? 0) / 10) % 2 === 0;
   if (isVisible) {
+    // Calculate shake offset if player is shaking (on lava)
+    const shakeOffsetX = player.shaking ? (Math.random() - 0.5) * 4 : 0;
+    const shakeOffsetY = player.shaking ? (Math.random() - 0.5) * 4 : 0;
+
     // Blinking animation: eyes closed for 3-5 frames every 40 frames
     const blinkCycle = state.animationFrame % 40;
     const isBlinking = blinkCycle >= 36 && blinkCycle <= 39;
@@ -266,17 +270,17 @@ export function drawGameCanvas(
       if (flashDamage) {
         ctx.globalAlpha = 0.7;
         ctx.fillStyle = "#f56565";
-        ctx.fillRect(player.x, player.y, player.width, player.height);
+        ctx.fillRect(player.x + shakeOffsetX, player.y + shakeOffsetY, player.width, player.height);
         ctx.globalAlpha = 1;
       }
 
       // Flip image horizontally if facing left
       if (!player.facingRight) {
-        ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
+        ctx.translate(player.x + player.width / 2 + shakeOffsetX, player.y + player.height / 2 + shakeOffsetY);
         ctx.scale(-1, 1);
         ctx.drawImage(playerImage, -player.width / 2, -player.height / 2, player.width, player.height);
       } else {
-        ctx.drawImage(playerImage, player.x, player.y, player.width, player.height);
+        ctx.drawImage(playerImage, player.x + shakeOffsetX, player.y + shakeOffsetY, player.width, player.height);
       }
 
       ctx.restore();
@@ -284,7 +288,7 @@ export function drawGameCanvas(
       // Draw weapon indicator
       if (player.hasWeapon) {
         ctx.fillStyle = "#2d3748";
-        ctx.fillRect(player.x + (player.facingRight ? 20 : -5), player.y + 12, 10, 4);
+        ctx.fillRect(player.x + (player.facingRight ? 20 : -5) + shakeOffsetX, player.y + 12 + shakeOffsetY, 10, 4);
       }
     } else {
       // Fallback to green circle if textures not loaded
@@ -294,11 +298,11 @@ export function drawGameCanvas(
       }
       ctx.fillStyle = playerColor;
       ctx.beginPath();
-      ctx.arc(player.x + 15, player.y + 15, 15, 0, Math.PI * 2);
+      ctx.arc(player.x + 15 + shakeOffsetX, player.y + 15 + shakeOffsetY, 15, 0, Math.PI * 2);
       ctx.fill();
       if (player.hasWeapon) {
         ctx.fillStyle = "#2d3748";
-        ctx.fillRect(player.x + (player.facingRight ? 20 : -5), player.y + 12, 10, 4);
+        ctx.fillRect(player.x + (player.facingRight ? 20 : -5) + shakeOffsetX, player.y + 12 + shakeOffsetY, 10, 4);
       }
     }
   }

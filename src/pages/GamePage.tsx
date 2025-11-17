@@ -321,93 +321,141 @@ export default function GamePage(): JSX.Element {
 
   return (
     <div className="flex h-screen flex-col bg-slate-100 overflow-hidden">
-      {/* Compact Status Bar */}
-      <div className="flex items-center justify-between bg-gradient-to-br from-brandStart to-brandEnd px-3 py-1.5 text-white shadow-lg flex-shrink-0">
-        {/* Left: Title */}
-        <h1 className="flex items-center gap-2 text-lg font-bold">
-          <span>🎮</span>
-          <span>The Lost Prison</span>
-        </h1>
+      {/* Modern Top Bar */}
+      <div className="bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 px-4 py-2 shadow-xl flex-shrink-0">
+        <div className="flex items-center justify-between">
+          {/* Left: Title + Level */}
+          <div className="flex items-center gap-3">
+            <h1 className="text-white font-bold text-lg tracking-tight flex items-center gap-2">
+              🎮 <span>The Lost Prison</span>
+            </h1>
+            <div className="bg-white/20 backdrop-blur-sm rounded-full px-3 py-1 text-white text-xs font-bold">
+              Level {currentLevel?.level_number || 1}
+            </div>
+          </div>
 
-        {/* Center: Stats */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 rounded bg-purple-600/80 px-2 py-1 text-xs font-semibold">
-            <span className="opacity-70">LVL</span>
-            <span>{currentLevel?.level_number || 1}</span>
-          </div>
-          <div className="flex items-center gap-1.5 rounded bg-yellow-600/80 px-2 py-1 text-xs font-semibold">
-            <span>🔑</span>
-            <span>{gameState.keys}</span>
-          </div>
-          <div className="flex items-center gap-1.5 rounded bg-blue-600/80 px-2 py-1 text-xs font-semibold">
-            <span>🔫</span>
-            <span>{gameState.ammo}</span>
-          </div>
-          <div className="flex items-center gap-1.5 rounded bg-red-600/80 px-2 py-1 text-xs font-semibold">
-            <span>❤️</span>
-            <span>{gameState.health}</span>
-          </div>
-          <div className="flex items-center gap-1.5 rounded bg-indigo-600/80 px-2 py-1 text-xs font-semibold">
-            <span>⏱️</span>
-            <span>{gameState.time}s</span>
-          </div>
-          <div className="flex items-center gap-1.5 rounded bg-slate-600/80 px-2 py-1 text-xs font-semibold">
-            <span>💀</span>
-            <span>{gameState.deaths}</span>
-          </div>
-        </div>
+          {/* Center: Compact Stats HUD */}
+          <div className="flex items-center gap-1 bg-black/20 backdrop-blur-sm rounded-full px-4 py-1.5">
+            {/* Keys */}
+            <div className="flex items-center gap-1 px-2">
+              <span className="text-yellow-300 text-sm">🔑</span>
+              <span className="text-white text-xs font-bold min-w-[1ch]">{gameState.keys}</span>
+            </div>
+            <div className="w-px h-4 bg-white/20"></div>
 
-        {/* Right: Action Buttons */}
-        <div className="flex gap-1.5">
-          <button
-            onClick={handleRestart}
-            className="rounded bg-white/20 px-2 py-1 text-xs font-semibold hover:bg-white/30 transition"
-          >
-            🔄 Restart
-          </button>
-          <button
-            onClick={handlePrevLevel}
-            disabled={!currentLevel || publishedLevels.findIndex(l => l.id === currentLevel.id) === 0}
-            className="rounded bg-white/20 px-2 py-1 text-xs font-semibold hover:bg-white/30 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            ⏮️ Prev
-          </button>
-          <button
-            onClick={handleNextLevel}
-            disabled={!currentLevel || publishedLevels.findIndex(l => l.id === currentLevel.id) === publishedLevels.length - 1}
-            className="rounded bg-white/20 px-2 py-1 text-xs font-semibold hover:bg-white/30 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            ⏭️ Next
-          </button>
-          <button
-            onClick={() => setShowControls(!showControls)}
-            className="rounded bg-white/20 px-2 py-1 text-xs font-semibold hover:bg-white/30 transition"
-          >
-            {showControls ? "🎮 Hide" : "🎮 Controls"}
-          </button>
-          <button
-            onClick={() => setShowLevelSelector(true)}
-            className="rounded bg-white/20 px-2 py-1 text-xs font-semibold hover:bg-white/30 transition"
-          >
-            📋 Levels
-          </button>
-          <button
-            onClick={() => {
-              const newMutedState = !isMuted;
-              setIsMuted(newMutedState);
-              setMuted(newMutedState);
-            }}
-            className="rounded bg-white/20 px-2 py-1 text-xs font-semibold hover:bg-white/30 transition"
-            title={isMuted ? "Unmute sound" : "Mute sound"}
-          >
-            {isMuted ? "🔇" : "🔊"}
-          </button>
+            {/* Ammo */}
+            <div className="flex items-center gap-1 px-2">
+              <span className="text-blue-300 text-sm">🔫</span>
+              <span className="text-white text-xs font-bold min-w-[1ch]">{gameState.ammo}</span>
+            </div>
+            <div className="w-px h-4 bg-white/20"></div>
+
+            {/* Health Bar */}
+            <div className="flex items-center gap-1.5 px-2">
+              <span className="text-red-400 text-sm">❤️</span>
+              <div className="flex items-center gap-0.5">
+                {Array.from({ length: Math.min(gameState.health, 10) }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="w-1.5 h-3 rounded-full bg-gradient-to-b from-red-400 to-red-600"
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="w-px h-4 bg-white/20"></div>
+
+            {/* Bombs */}
+            <div className="flex items-center gap-1 px-2">
+              <span className="text-orange-400 text-sm">💣</span>
+              <span className="text-white text-xs font-bold min-w-[1ch]">{gameState.bombCount}</span>
+            </div>
+            <div className="w-px h-4 bg-white/20"></div>
+
+            {/* Time */}
+            <div className="flex items-center gap-1 px-2">
+              <span className="text-cyan-300 text-sm">⏱️</span>
+              <span className="text-white text-xs font-bold min-w-[2ch]">{gameState.time}s</span>
+            </div>
+            <div className="w-px h-4 bg-white/20"></div>
+
+            {/* Deaths */}
+            <div className="flex items-center gap-1 px-2">
+              <span className="text-gray-400 text-sm">💀</span>
+              <span className="text-white text-xs font-bold min-w-[1ch]">{gameState.deaths}</span>
+            </div>
+          </div>
+
+          {/* Right: Minimal Action Buttons */}
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={handleRestart}
+              className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm transition-all hover:scale-110 flex items-center justify-center"
+              title="Restart Level"
+            >
+              🔄
+            </button>
+            <button
+              onClick={handlePrevLevel}
+              disabled={!currentLevel || publishedLevels.findIndex(l => l.id === currentLevel.id) === 0}
+              className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm transition-all hover:scale-110 flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100"
+              title="Previous Level"
+            >
+              ⏮️
+            </button>
+            <button
+              onClick={handleNextLevel}
+              disabled={!currentLevel || publishedLevels.findIndex(l => l.id === currentLevel.id) === publishedLevels.length - 1}
+              className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm transition-all hover:scale-110 flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100"
+              title="Next Level"
+            >
+              ⏭️
+            </button>
+            <div className="w-px h-6 bg-white/20 mx-1"></div>
+            <button
+              onClick={() => setShowControls(!showControls)}
+              className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm transition-all hover:scale-110 flex items-center justify-center"
+              title="Toggle Controls"
+            >
+              🎮
+            </button>
+            <button
+              onClick={() => setShowLevelSelector(true)}
+              className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm transition-all hover:scale-110 flex items-center justify-center"
+              title="Level Select"
+            >
+              📋
+            </button>
+            <button
+              onClick={() => {
+                const newMutedState = !isMuted;
+                setIsMuted(newMutedState);
+                setMuted(newMutedState);
+              }}
+              className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm transition-all hover:scale-110 flex items-center justify-center"
+              title={isMuted ? "Unmute sound" : "Mute sound"}
+            >
+              {isMuted ? "🔇" : "🔊"}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Game Canvas */}
-      <div className="flex flex-1 items-center justify-center p-4 bg-slate-900 overflow-hidden">
-        <canvas ref={gameCanvasRef} className="border-4 border-slate-800 shadow-2xl" />
+      {/* Game Canvas with Ambient Glow */}
+      <div className="flex flex-1 items-center justify-center p-6 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 overflow-hidden relative">
+        {/* Subtle ambient light effect */}
+        <div className="absolute inset-0 bg-gradient-radial from-purple-900/10 via-transparent to-transparent pointer-events-none"></div>
+
+        <canvas
+          ref={gameCanvasRef}
+          className="rounded-2xl border-4 border-slate-700/30 relative z-10"
+          style={{
+            boxShadow: `
+              0 25px 70px rgba(0, 0, 0, 0.6),
+              0 0 100px rgba(139, 92, 246, 0.15),
+              0 0 0 1px rgba(255, 255, 255, 0.05) inset
+            `
+          }}
+        />
       </div>
 
       {/* Collapsible Controls */}

@@ -83,6 +83,8 @@ export interface PlayerState {
   facingRight: boolean;
   invincible?: boolean;
   invincibleTimer?: number;
+  shaking?: boolean;
+  shakeTimer?: number;
 }
 
 export interface MonsterState {
