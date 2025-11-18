@@ -245,8 +245,8 @@ function handleLavaDamage(state: GameState, player: PlayerState): boolean {
   return false;
 }
 
-function openDoorIfPossible(state: GameState, player: PlayerState): boolean {
-  let openedDoor = false;
+// Treat all closed doors as solid blocks (collision only)
+function handleDoorCollisions(state: GameState, player: PlayerState): void {
   state.doors.forEach((door) => {
     if (!door.open) {
       const doorBox = {
@@ -256,16 +256,40 @@ function openDoorIfPossible(state: GameState, player: PlayerState): boolean {
         height: TILE_SIZE
       };
       if (checkCollision(player, doorBox)) {
-        if (state.keys > 0) {
-          door.open = true;
-          state.keys -= 1;
-          openedDoor = true;
-        } else {
-          resolveCollision(player, doorBox);
-        }
+        resolveCollision(player, doorBox);
       }
     }
   });
+}
+
+// Open door when K is pressed (exported for use in GamePage)
+// Checks if player is within 1.5 blocks of the door center
+export function tryOpenDoor(state: GameState): boolean {
+  const player = state.player;
+  let openedDoor = false;
+
+  state.doors.forEach((door) => {
+    if (!door.open && state.keys > 0) {
+      // Calculate center of door and player
+      const doorCenterX = door.x * TILE_SIZE + TILE_SIZE / 2;
+      const doorCenterY = door.y * TILE_SIZE + TILE_SIZE / 2;
+      const playerCenterX = player.x + player.width / 2;
+      const playerCenterY = player.y + player.height / 2;
+
+      // Calculate distance between player and door
+      const distanceX = Math.abs(playerCenterX - doorCenterX);
+      const distanceY = Math.abs(playerCenterY - doorCenterY);
+
+      // Check if player is within 1.5 blocks (60 pixels) in both directions
+      const maxDistance = TILE_SIZE * 1.5;
+      if (distanceX <= maxDistance && distanceY <= maxDistance) {
+        door.open = true;
+        state.keys -= 1;
+        openedDoor = true;
+      }
+    }
+  });
+
   return openedDoor;
 }
 
@@ -461,7 +485,8 @@ export function updateGameFrame(state: GameState, keys: KeyMap): {
     };
   }
 
-  const doorOpened = openDoorIfPossible(nextState, player);
+  // Handle door collisions (doors act as solid blocks when closed)
+  handleDoorCollisions(nextState, player);
 
   const itemCollected = collectItems(nextState, player);
 
@@ -492,7 +517,7 @@ export function updateGameFrame(state: GameState, keys: KeyMap): {
     events: {
       levelComplete,
       playerDied: false,
-      doorOpened,
+      doorOpened: false, // Doors only open when K is pressed (handled in GamePage)
       tookDamage,
       itemCollected,
       bombExploded

@@ -107,7 +107,7 @@ Protected routes require `role='admin'` in the user's profile (Supabase RLS enfo
 - `level_number` (int): 1-10 per creator
 - `level_name` (text): Custom level name
 - `map_data` (jsonb): Complete level data (grid, objects, background)
-- `background` (text): 'none', 'bg1', 'bg2'
+- `background` (text): 'none', 'bg1', 'bg2', 'bg3', 'bg4', 'bg5', 'bg6'
 - `is_published` (boolean): Visibility control
 - `created_by` (uuid): References profiles(user_id)
 - RLS: Only admins can write, players can read published levels
@@ -155,7 +155,7 @@ Protected routes require `role='admin'` in the user's profile (Supabase RLS enfo
 - `gridWidth`, `gridHeight` - Canvas dimensions in tiles
 - `currentLevel` - Level number (1-10)
 - `selectedTool` - Active drawing tool
-- `background` - 'none' | 'bg1' | 'bg2'
+- `background` - 'none' | 'bg1' | 'bg2' | 'bg3' | 'bg4' | 'bg5' | 'bg6'
 
 **Game State** ([gameState.ts](src/state/gameState.ts)):
 - `grid: number[][]` - Cloned level grid (modifiable by bombs)
@@ -323,6 +323,46 @@ Patrol behavior ([gameLoop.ts](src/state/gameLoop.ts:120-182)):
 2. **Placed** (B key) → 90-frame countdown at player grid position
 3. **Explosion** → Destroys only Stone blocks within 2-tile blast radius
 
+### Door/Lock/Key System
+
+**Key Mechanics**:
+- Keys are collectibles placed in the editor at grid positions
+- When player collects a key: `state.keys += 1` (shown in HUD)
+- Multiple keys can be collected and used
+
+**Door Mechanics** ([gameLoop.ts](src/state/gameLoop.ts:248-294)):
+- Doors are placed in editor as EditorDoor objects at grid positions
+- Each door has an `open: boolean` state
+- Closed doors act as **solid walls** - player cannot pass through
+- Open doors are non-solid and can be walked through
+
+**Opening Doors** (K button):
+- Player must press **K** to open a door (not automatic)
+- Door opening uses **proximity check** (1.5 blocks / 60 pixels)
+- Player can open door from:
+  - Standing directly in front
+  - Standing one block away (left/right/above/below)
+  - Standing diagonally nearby
+- Requirements:
+  - Player must have at least 1 key (`state.keys > 0`)
+  - Player must be within 1.5 blocks of door center
+  - Door must be closed
+- When opened: `door.open = true`, `state.keys -= 1`, sound effect plays
+
+**Implementation**:
+```typescript
+// Collision handling (always treat closed doors as walls)
+function handleDoorCollisions(state: GameState, player: PlayerState): void
+
+// Opening doors on K press (proximity-based)
+export function tryOpenDoor(state: GameState): boolean
+  - Calculates distance between player center and door center
+  - Opens if distanceX <= 60px AND distanceY <= 60px
+  - Consumes one key and sets door.open = true
+```
+
+**CRITICAL**: Doors automatically acted as walls and opened on collision in earlier versions. Current implementation requires **explicit K button press** and uses **proximity detection** instead of collision.
+
 ### Damage System
 
 - **Lava**: 1 HP/second (60-frame cooldown)
@@ -405,8 +445,12 @@ Loaded via [useTextures.ts](src/hooks/useTextures.ts) hook:
 - `public/Images/Lock-Normal.png` - Doors
 - `public/Images/Fire_Trap.png` - Fire trap block
 - `public/Images/Fire Anim/Fire-1.png` to `Fire-4.png` - Fire animation frames
-- `public/Images/BG-1.webp` - Forest background
-- `public/Images/BG-2.jpg` - Sky background
+- `public/Images/BackGround/BG-1.webp` - Forest platformer background
+- `public/Images/BackGround/BG-2.jpg` - Sky plains background
+- `public/Images/BackGround/BG-3.jpg` - Background 3
+- `public/Images/BackGround/BG-4.jpg` - Background 4
+- `public/Images/BackGround/BG-5.jpg` - Background 5
+- `public/Images/BackGround/BG-6.jpg` - Background 6
 - `public/Images/Player/Kilo-Opened.png` - Player sprite (mouth open)
 - `public/Images/Player/Kilo-Closed.png` - Player sprite (mouth closed)
 - `public/Images/Player/Goal.png` - Goal/exit sprite

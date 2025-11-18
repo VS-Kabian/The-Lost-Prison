@@ -15,6 +15,14 @@ export function drawEditorCanvas(
     ctx.drawImage(textures.bg1, 0, 0, ctx.canvas.width, ctx.canvas.height);
   } else if (state.background === "bg2" && textures.bg2?.complete) {
     ctx.drawImage(textures.bg2, 0, 0, ctx.canvas.width, ctx.canvas.height);
+  } else if (state.background === "bg3" && textures.bg3?.complete) {
+    ctx.drawImage(textures.bg3, 0, 0, ctx.canvas.width, ctx.canvas.height);
+  } else if (state.background === "bg4" && textures.bg4?.complete) {
+    ctx.drawImage(textures.bg4, 0, 0, ctx.canvas.width, ctx.canvas.height);
+  } else if (state.background === "bg5" && textures.bg5?.complete) {
+    ctx.drawImage(textures.bg5, 0, 0, ctx.canvas.width, ctx.canvas.height);
+  } else if (state.background === "bg6" && textures.bg6?.complete) {
+    ctx.drawImage(textures.bg6, 0, 0, ctx.canvas.width, ctx.canvas.height);
   } else {
     // Default sky blue background
     ctx.fillStyle = "#87CEEB";

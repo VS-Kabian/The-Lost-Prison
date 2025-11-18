@@ -10,6 +10,10 @@ type TextureKey =
   | "lock"
   | "bg1"
   | "bg2"
+  | "bg3"
+  | "bg4"
+  | "bg5"
+  | "bg6"
   | "playerOpen"
   | "playerClose"
   | "goal"
@@ -30,8 +34,12 @@ const textureSources: Record<TextureKey, string> = {
   key: "/Images/Key.png",
   bomb: "/Images/Bomb-Lev-1.webp",
   lock: "/Images/Lock-Normal.png",
-  bg1: "/Images/BG-1.webp",
-  bg2: "/Images/BG-2.jpg",
+  bg1: "/Images/BackGround/BG-1.webp",
+  bg2: "/Images/BackGround/BG-2.jpg",
+  bg3: "/Images/BackGround/BG-3.jpg",
+  bg4: "/Images/BackGround/BG-4.jpg",
+  bg5: "/Images/BackGround/BG-5.jpg",
+  bg6: "/Images/BackGround/BG-6.jpg",
   playerOpen: "/Images/Player/Kilo-Opened.png",
   playerClose: "/Images/Player/Kilo-Closed.png",
   goal: "/Images/Player/Goal.png",

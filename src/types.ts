@@ -18,7 +18,7 @@ export enum TileType {
   Platform = 10
 }
 
-export type BackgroundKey = "none" | "bg1" | "bg2";
+export type BackgroundKey = "none" | "bg1" | "bg2" | "bg3" | "bg4" | "bg5" | "bg6";
 
 export type Tool =
   | "empty"

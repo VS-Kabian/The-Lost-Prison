@@ -18,7 +18,11 @@ export type ThemeKey = keyof typeof THEMES;
 export const BACKGROUND_OPTIONS: { value: BackgroundKey; label: string }[] = [
   { value: "none", label: "No Background" },
   { value: "bg1", label: "Forest Platformer" },
-  { value: "bg2", label: "Sky Plains" }
+  { value: "bg2", label: "Sky Plains" },
+  { value: "bg3", label: "Background 3" },
+  { value: "bg4", label: "Background 4" },
+  { value: "bg5", label: "Background 5" },
+  { value: "bg6", label: "Background 6" }
 ];
 
 export const TOOL_OPTIONS = [

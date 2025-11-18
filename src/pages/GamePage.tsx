@@ -9,7 +9,7 @@ import {
   createPlayerBullet,
   jump
 } from "../state/gameState";
-import { updateGameFrame, type KeyMap } from "../state/gameLoop";
+import { updateGameFrame, tryOpenDoor, type KeyMap } from "../state/gameLoop";
 import { TILE_SIZE, type GameState } from "../types";
 import { getPublishedLevels, levelToLevelData } from "../services/levelService";
 import type { Database } from "../types/database.types";
@@ -240,6 +240,17 @@ export default function GamePage(): JSX.Element {
             bombCount: prev.bombCount - 1
           }));
         }
+      }
+
+      if (e.key === "k" || e.key === "K") {
+        setGameState(prev => {
+          const next = { ...prev };
+          const opened = tryOpenDoor(next);
+          if (opened) {
+            playSound("itemPick"); // Play sound when door is opened
+          }
+          return next;
+        });
       }
     };
 
@@ -484,6 +495,10 @@ export default function GamePage(): JSX.Element {
               <div className="flex items-center gap-2">
                 <kbd className="rounded bg-slate-200 px-3 py-2 font-mono text-sm font-bold">B</kbd>
                 <span className="font-medium">Place bomb (destroys stone blocks)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <kbd className="rounded bg-slate-200 px-3 py-2 font-mono text-sm font-bold">K</kbd>
+                <span className="font-medium">Open door (requires key)</span>
               </div>
             </div>
           </div>
