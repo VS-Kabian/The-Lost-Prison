@@ -234,6 +234,70 @@ export function drawGameCanvas(
     }
   });
 
+  // Render fire traps
+  state.firetraps.forEach((trap) => {
+    const trapX = trap.x * TILE_SIZE;
+    const trapY = trap.y * TILE_SIZE;
+
+    // Draw the trap block
+    if (textures.fireTrapBlock?.complete) {
+      ctx.drawImage(textures.fireTrapBlock, trapX, trapY, TILE_SIZE, TILE_SIZE);
+    } else {
+      ctx.fillStyle = "#ff4400";
+      ctx.fillRect(trapX, trapY, TILE_SIZE, TILE_SIZE);
+      ctx.font = "20px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("🔥", trapX + 20, trapY + 26);
+    }
+
+    // Draw warning glow
+    if (trap.warning) {
+      const glowIntensity = Math.abs(Math.sin(state.animationFrame * 0.2)) * 0.5 + 0.5;
+      ctx.save();
+      ctx.globalAlpha = glowIntensity;
+      ctx.fillStyle = "#ff6600";
+      ctx.fillRect(trapX, trapY, TILE_SIZE, TILE_SIZE);
+      ctx.restore();
+    }
+
+    // Draw fire blocks (animated with PNG frames) - BIGGER SIZE
+    if (trap.isActive && trap.fireBlocks.length > 0) {
+      trap.fireBlocks.forEach((fireBlock, index) => {
+        const fireX = fireBlock.x * TILE_SIZE;
+        const fireY = fireBlock.y * TILE_SIZE;
+
+        // Cycle through 4 fire animation frames (change every 5 frames)
+        const frameIndex = Math.floor((state.animationFrame + index * 5) / 5) % 4;
+        const fireFrames = [textures.fire1, textures.fire2, textures.fire3, textures.fire4];
+        const currentFrame = fireFrames[frameIndex];
+
+        // Make fire 2.5x bigger for better visibility
+        const fireSize = TILE_SIZE * 2.5;
+        const fireOffsetX = fireX - TILE_SIZE * 0.75;  // Center the bigger fire
+        const fireOffsetY = fireY - TILE_SIZE * 0.75;
+
+        if (currentFrame?.complete) {
+          ctx.drawImage(currentFrame, fireOffsetX, fireOffsetY, fireSize, fireSize);
+        } else {
+          // Fallback: gradient fire effect
+          const gradient = ctx.createRadialGradient(
+            fireX + TILE_SIZE / 2,
+            fireY + TILE_SIZE / 2,
+            0,
+            fireX + TILE_SIZE / 2,
+            fireY + TILE_SIZE / 2,
+            fireSize / 2
+          );
+          gradient.addColorStop(0, "#ffff00");
+          gradient.addColorStop(0.5, "#ff6600");
+          gradient.addColorStop(1, "#ff0000");
+          ctx.fillStyle = gradient;
+          ctx.fillRect(fireOffsetX, fireOffsetY, fireSize, fireSize);
+        }
+      });
+    }
+  });
+
   const player = state.player;
   const flashDamage = state.damageTimer > 0 && Math.floor(state.damageTimer / 10) % 2 === 0;
 

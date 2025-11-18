@@ -327,6 +327,71 @@ Patrol behavior ([gameLoop.ts](src/state/gameLoop.ts:120-182)):
 
 - **Lava**: 1 HP/second (60-frame cooldown)
 - **Monster**: Instant death, level restart
+- **Fire Traps**: 1 HP on contact (60-frame invincibility)
+
+### Camera System
+
+**Viewport Configuration** ([GamePage.tsx](src/pages/GamePage.tsx:142-145)):
+- Fixed viewport: **12 tiles wide × 6 tiles tall** (480×240 pixels)
+- Canvas scaled to **1.5x** with pixelated rendering for retro aesthetic
+- Camera follows player smoothly with boundary clamping
+
+**Camera Positioning** ([gameCanvas.ts](src/canvas/gameCanvas.ts:21-37)):
+```typescript
+// Center camera on player horizontally
+let cameraX = state.player.x + state.player.width / 2 - viewportWidth / 2;
+
+// Position camera 2 blocks above player vertically
+let cameraY = state.player.y - 2 * TILE_SIZE;
+
+// Clamp to map boundaries to prevent showing outside map
+cameraX = Math.max(0, Math.min(cameraX, mapWidth - viewportWidth));
+cameraY = Math.max(0, Math.min(cameraY, mapHeight - viewportHeight));
+
+// Apply transformation to all rendering
+ctx.translate(-cameraX, -cameraY);
+```
+
+**Key Points**:
+- Background fills entire map, not just viewport
+- All game objects rendered in world coordinates, camera transform handles view
+- Canvas wrapper uses `overflow-hidden` to prevent scrolling
+- `ctx.restore()` at end of render to reset transformation
+
+### Fire Trap System
+
+**Fire Trap Mechanics** ([types.ts](src/types.ts:51-58), [gameLoop.ts](src/state/gameLoop.ts)):
+
+Fire traps are stationary hazards that periodically shoot fire in a direction.
+
+**Editor Configuration** ([editorState.ts](src/state/editorState.ts:126-135)):
+- **Direction**: "up" | "down" | "left" | "right" (default: "up")
+- **Spray Distance**: Number of blocks fire travels (default: 1)
+- **Spray Time**: Seconds fire is active (default: 2)
+- **Rest Time**: Seconds between activations (default: 2)
+
+**Game Runtime Behavior**:
+1. **Rest Phase**: Fire trap block visible, no fire
+2. **Warning Phase**: 0.5s (30 frames) before activation, block glows orange
+3. **Active Phase**: Fire shoots out block-by-block with 0.15s (9 frames) delay
+4. **Cycle**: Active (2s) → Rest (2s) → repeat
+
+**Fire Animation** ([gameCanvas.ts](src/canvas/gameCanvas.ts:245-281)):
+- Uses 4 PNG frames (`fire1.png` through `fire4.png`) cycling every 5 game frames
+- Fire rendered at **2.5x tile size** (100×100px) for visibility
+- Centered on grid position with offset calculation
+
+**Collision**:
+- Fire trap block acts as **solid wall** for player and monsters
+- Active fire blocks deal **1 HP damage** on contact
+- **60-frame (1 second) invincibility** after damage
+- Player shakes when hit (same as lava damage)
+
+**Implementation Notes**:
+- Editor stores time in **seconds**, converted to **frames** (×60) in game state
+- Timer starts with warning phase offset: `restTime * 60 - 30`
+- Fire blocks calculated dynamically based on direction and spray distance
+- `fireBlocks[]` array used for collision detection during active phase
 
 ### Image Assets
 
@@ -338,10 +403,18 @@ Loaded via [useTextures.ts](src/hooks/useTextures.ts) hook:
 - `public/Images/Key.png` - Keys
 - `public/Images/Bomb-Lev-1.webp` - Bombs
 - `public/Images/Lock-Normal.png` - Doors
+- `public/Images/Fire_Trap.png` - Fire trap block
+- `public/Images/Fire Anim/Fire-1.png` to `Fire-4.png` - Fire animation frames
 - `public/Images/BG-1.webp` - Forest background
 - `public/Images/BG-2.jpg` - Sky background
+- `public/Images/Player/Kilo-Opened.png` - Player sprite (mouth open)
+- `public/Images/Player/Kilo-Closed.png` - Player sprite (mouth closed)
+- `public/Images/Player/Goal.png` - Goal/exit sprite
+- `public/Images/Player/Gun.png` - Weapon sprite
+- `public/Images/Player/Monster-Open.png` - Monster sprite (mouth open)
+- `public/Images/Player/Monster-Close.png` - Monster sprite (mouth closed)
 
-Emoji fallbacks (⬛🟦🟥🟫) used if textures fail to load.
+Emoji fallbacks (⬛🟦🟥🟫🔥👾) used if textures fail to load.
 
 ### Audio System
 
@@ -523,6 +596,40 @@ if (key === "newSound") {
 playSound("newSound");
 ```
 
+### Adding New Trap Type (Following Fire Trap Pattern)
+
+1. **Types** ([types.ts](src/types.ts)):
+   - Add to `Tool` type union
+   - Create `EditorNewTrap` interface with configuration
+   - Create `NewTrapState` interface for runtime
+   - Add to `LevelData` and `GameState` interfaces
+
+2. **Constants** ([constants.ts](src/constants.ts)):
+   - Add to `TOOL_OPTIONS` under "Traps" section
+
+3. **Textures** ([useTextures.ts](src/hooks/useTextures.ts)):
+   - Add texture keys to `TextureKey` type
+   - Add file paths to `textureSources`
+
+4. **Editor State** ([editorState.ts](src/state/editorState.ts)):
+   - Create `createNewTrapAt()` function with defaults
+   - Add case in `applyToolAtPosition()` switch
+   - Update all state functions to include trap array
+
+5. **Game State** ([gameState.ts](src/state/gameState.ts)):
+   - Convert editor traps to game format in `buildGameStateFromLevel()`
+   - Convert time-based values to frames if needed
+
+6. **Game Loop** ([gameLoop.ts](src/state/gameLoop.ts)):
+   - Create `updateNewTraps()` function with logic
+   - Add collision detection for trap block and effects
+   - Integrate into main game loop
+
+7. **Canvas Rendering**:
+   - Add rendering in [editorCanvas.ts](src/canvas/editorCanvas.ts)
+   - Add rendering in [gameCanvas.ts](src/canvas/gameCanvas.ts)
+   - Include animations, warning effects, etc.
+
 ### Debugging Blue Screen Bug
 
 If page goes blue/blank on key press:
@@ -564,6 +671,33 @@ console.log("Audio enabled:", enabled);
 console.log("Audio loaded:", loaded);
 playSound("jump"); // Should play immediately if enabled
 ```
+
+### Debugging Camera Issues
+
+If camera not following player correctly or showing wrong area:
+
+1. **Check Viewport Dimensions** ([GamePage.tsx](src/pages/GamePage.tsx)):
+   - Verify `VIEWPORT_WIDTH` and `VIEWPORT_HEIGHT` are set correctly
+   - Canvas width/height must match viewport tile count × TILE_SIZE
+
+2. **Check Camera Offset Calculation** ([gameCanvas.ts](src/canvas/gameCanvas.ts)):
+   - Ensure `cameraX` centers on player: `player.x + player.width / 2 - viewportWidth / 2`
+   - Ensure `cameraY` positions correctly above player: `player.y - 2 * TILE_SIZE`
+   - Verify clamping prevents showing outside map boundaries
+
+3. **Check Canvas Transformation**:
+   - `ctx.save()` must be called before `ctx.translate()`
+   - `ctx.restore()` must be called at end of render function
+   - All rendering must happen between save/restore
+
+4. **Check Background Rendering**:
+   - Background should fill entire **map**, not viewport: `drawImage(bg, 0, 0, mapWidth, mapHeight)`
+   - Not: `drawImage(bg, 0, 0, viewportWidth, viewportHeight)`
+
+5. **Check Canvas Styling**:
+   - `transform: scale()` applied for pixel-perfect scaling
+   - `imageRendering: 'pixelated'` for retro look
+   - Container uses `overflow-hidden` to prevent scrolling
 
 ## Key Architectural Patterns
 

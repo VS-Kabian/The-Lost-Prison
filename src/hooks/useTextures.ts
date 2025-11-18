@@ -15,7 +15,12 @@ type TextureKey =
   | "goal"
   | "weapon"
   | "monsterOpen"
-  | "monsterClose";
+  | "monsterClose"
+  | "fireTrapBlock"
+  | "fire1"
+  | "fire2"
+  | "fire3"
+  | "fire4";
 
 const textureSources: Record<TextureKey, string> = {
   wall: "/Images/Wall.webp",
@@ -32,7 +37,12 @@ const textureSources: Record<TextureKey, string> = {
   goal: "/Images/Player/Goal.png",
   weapon: "/Images/Player/Gun.png",
   monsterOpen: "/Images/Player/Monster-Open.png",
-  monsterClose: "/Images/Player/Monster-Close.png"
+  monsterClose: "/Images/Player/Monster-Close.png",
+  fireTrapBlock: "/Images/Fire_Trap.png",
+  fire1: "/Images/Fire Anim/Fire-1.png",
+  fire2: "/Images/Fire Anim/Fire-2.png",
+  fire3: "/Images/Fire Anim/Fire-3.png",
+  fire4: "/Images/Fire Anim/Fire-4.png"
 };
 
 export type TextureMap = Partial<Record<TextureKey, HTMLImageElement>>;

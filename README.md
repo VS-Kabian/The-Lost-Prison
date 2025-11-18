@@ -75,5 +75,5 @@ MIT
 Built for creative level design and classic platformer fun.
 
 <div align="center">
-  <strong>Game Version: 1.0.0</strong>
+  <strong>Game Version: 1.6.0</strong>
 </div>

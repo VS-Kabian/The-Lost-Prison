@@ -28,6 +28,7 @@ function cloneState(state: GameState): GameState {
     doors: state.doors.map((door) => ({ ...door })),
     bullets: state.bullets.map((bullet) => ({ ...bullet })),
     placedBombs: state.placedBombs.map((bomb) => ({ ...bomb })),
+    firetraps: state.firetraps.map((trap) => ({ ...trap, fireBlocks: [...trap.fireBlocks] })),
     grid: state.grid.map((row) => [...row])
   };
 }
@@ -117,6 +118,19 @@ function handleTileCollisions(state: GameState, player: PlayerState): void {
   if (checkCollision(player, bottomWall)) {
     resolveCollision(player, bottomWall);
   }
+
+  // Check collision with fire trap blocks (treat as solid obstacles)
+  state.firetraps.forEach((trap) => {
+    const trapBox = {
+      x: trap.x * TILE_SIZE,
+      y: trap.y * TILE_SIZE,
+      width: TILE_SIZE,
+      height: TILE_SIZE
+    };
+    if (checkCollision(player, trapBox)) {
+      resolveCollision(player, trapBox);
+    }
+  });
 }
 
 function updateMonsters(state: GameState, player: PlayerState): boolean {
@@ -166,6 +180,21 @@ function updateMonsters(state: GameState, player: PlayerState): boolean {
         }
       }
       if (hitWall) break;
+    }
+
+    // Check collision with fire trap blocks
+    if (!hitWall) {
+      state.firetraps.forEach((trap) => {
+        const trapBox = {
+          x: trap.x * TILE_SIZE,
+          y: trap.y * TILE_SIZE,
+          width: TILE_SIZE,
+          height: TILE_SIZE
+        };
+        if (checkCollision(monster, trapBox)) {
+          hitWall = true;
+        }
+      });
     }
 
     // If hit wall or reached patrol boundary, reverse direction
@@ -263,6 +292,104 @@ function collectItems(state: GameState, player: PlayerState): boolean {
   return collected;
 }
 
+function updateFireTraps(state: GameState, player: PlayerState): boolean {
+  let tookFireDamage = false;
+
+  state.firetraps.forEach((trap) => {
+    trap.timer -= 1;
+
+    // Handle timer reset and state transitions
+    if (trap.timer <= 0) {
+      if (trap.isActive) {
+        // End of spray phase, start rest phase
+        trap.isActive = false;
+        trap.warning = false;
+        trap.fireBlocks = [];
+        trap.timer = trap.restTime;
+      } else {
+        // End of rest phase, start warning then spray phase
+        trap.warning = false;
+        trap.isActive = true;
+        trap.fireBlocks = [];
+        trap.timer = trap.sprayTime;
+      }
+    }
+
+    // Warning phase: 0.5s (30 frames) before activation
+    if (!trap.isActive && trap.timer <= 30 && trap.timer > 0) {
+      trap.warning = true;
+    } else if (trap.isActive) {
+      trap.warning = false;
+    }
+
+    // Update fire blocks when active (with animation)
+    if (trap.isActive) {
+      const framesSinceActivation = trap.sprayTime - trap.timer;
+      const blocksToShow = Math.min(
+        Math.floor(framesSinceActivation / 9) + 1,  // 9 frames (0.15s) per block
+        trap.sprayDistance
+      );
+
+      // Calculate fire positions based on direction
+      const fireBlocks: import("../types").GridPosition[] = [];
+      for (let i = 1; i <= blocksToShow; i++) {
+        let fireX = trap.x;
+        let fireY = trap.y;
+
+        switch (trap.direction) {
+          case "up":
+            fireY = trap.y - i;
+            break;
+          case "down":
+            fireY = trap.y + i;
+            break;
+          case "left":
+            fireX = trap.x - i;
+            break;
+          case "right":
+            fireX = trap.x + i;
+            break;
+        }
+
+        // Check if fire block is within grid bounds
+        if (
+          fireX >= 0 &&
+          fireX < state.grid[0].length &&
+          fireY >= 0 &&
+          fireY < state.grid.length
+        ) {
+          fireBlocks.push({ x: fireX, y: fireY });
+        }
+      }
+
+      trap.fireBlocks = fireBlocks;
+
+      // Check collision with player
+      if (state.damageTimer <= 0) {
+        for (const fireBlock of fireBlocks) {
+          const fireBox = {
+            x: fireBlock.x * TILE_SIZE,
+            y: fireBlock.y * TILE_SIZE,
+            width: TILE_SIZE,
+            height: TILE_SIZE
+          };
+
+          if (checkCollision(player, fireBox)) {
+            state.health -= 1;
+            state.damageTimer = 60;  // 1 second invincibility
+            player.shaking = true;
+            player.shakeTimer = 30;
+            tookFireDamage = true;
+            break;
+          }
+        }
+      }
+    }
+  });
+
+  return tookFireDamage;
+}
+
 function handleGoal(state: GameState, player: PlayerState): boolean {
   if (!state.goalPos) {
     console.log("No goal position set!");
@@ -319,8 +446,11 @@ export function updateGameFrame(state: GameState, keys: KeyMap): {
   // Handle lava damage
   const lavaDamage = handleLavaDamage(nextState, player);
 
-  // Combine damage from both sources
-  const tookDamage = monsterDamage || lavaDamage;
+  // Handle fire trap damage and animation
+  const fireDamage = updateFireTraps(nextState, player);
+
+  // Combine damage from all sources
+  const tookDamage = monsterDamage || lavaDamage || fireDamage;
 
   // Check if player died from damage
   if (tookDamage && nextState.health <= 0) {

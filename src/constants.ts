@@ -48,6 +48,12 @@ export const TOOL_OPTIONS = [
       { id: "weapon", name: "Weapon", icon: "🔫" },
       { id: "bomb", name: "Bomb", icon: "💣" }
     ]
+  },
+  {
+    label: "Traps",
+    tools: [
+      { id: "firetrap", name: "Fire Trap", icon: "🔥" }
+    ]
   }
 ] as const;
 

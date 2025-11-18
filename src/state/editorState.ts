@@ -53,6 +53,7 @@ export function createInitialEditorState(): EditorState {
     coins: [],
     keys: [],
     doors: [],
+    firetraps: [],
     playerStart: null,
     goal: null,
     background: "none",
@@ -74,6 +75,7 @@ export function createLevelFromEditorState(state: EditorState): LevelData {
     coins: state.coins,
     keys: state.keys,
     doors: state.doors,
+    firetraps: state.firetraps,
     playerStart: state.playerStart,
     goal: state.goal,
     background: state.background,
@@ -95,6 +97,7 @@ export function applyLevelToEditorState(state: EditorState, level: LevelData): E
     coins: level.coins ?? [],
     keys: level.keys ?? [],
     doors: level.doors ?? [],
+    firetraps: level.firetraps ?? [],
     playerStart: level.playerStart ?? null,
     goal: level.goal ?? null,
     background: (level.background ?? "none") as BackgroundKey
@@ -121,6 +124,17 @@ export function createMonsterAt(x: number, y: number, width: number): EditorMons
 
 export function createDoorAt(x: number, y: number): EditorDoor {
   return { x, y, open: false };
+}
+
+export function createFireTrapAt(x: number, y: number): import("../types").EditorFireTrap {
+  return {
+    x,
+    y,
+    direction: "up",     // Default direction - fire comes from top
+    sprayDistance: 1,    // Default 1 block height
+    sprayTime: 2,        // Default 2 seconds
+    restTime: 2          // Default 2 seconds
+  };
 }
 
 export function toolToTile(tool: Tool): number | null {
@@ -152,6 +166,7 @@ export function applyToolAtPosition(state: EditorState, x: number, y: number): E
   let bombs = state.bombs;
   let keys = state.keys;
   let doors = state.doors;
+  let firetraps = state.firetraps ?? [];
   let playerStart = state.playerStart;
   let goal = state.goal;
 
@@ -163,6 +178,7 @@ export function applyToolAtPosition(state: EditorState, x: number, y: number): E
     bombs = removeObjectAtPosition(bombs, position);
     keys = removeObjectAtPosition(keys, position);
     doors = removeObjectAtPosition(doors, position);
+    firetraps = removeObjectAtPosition(firetraps, position);
     if (playerStart && playerStart.x === x && playerStart.y === y) {
       playerStart = null;
     }
@@ -220,6 +236,11 @@ export function applyToolAtPosition(state: EditorState, x: number, y: number): E
       playerStart = { x, y };
       newGrid[y][x] = 0;
       break;
+    case "firetrap":
+      clearPosition();
+      firetraps = upsertUnique(firetraps, createFireTrapAt(x, y));
+      newGrid[y][x] = 0;
+      break;
     default:
       break;
   }
@@ -232,6 +253,7 @@ export function applyToolAtPosition(state: EditorState, x: number, y: number): E
     bombs,
     keys,
     doors,
+    firetraps,
     goal,
     playerStart
   };
@@ -264,6 +286,7 @@ export function clearEditorState(state: EditorState): EditorState {
     coins: [],
     keys: [],
     doors: [],
+    firetraps: [],
     playerStart: null,
     goal: null
   };
@@ -290,6 +313,7 @@ export function resizeGrid(state: EditorState, width: number, height: number): E
     bombs: filterWithinBounds(state.bombs),
     keys: filterWithinBounds(state.keys),
     doors: filterWithinBounds(state.doors),
+    firetraps: filterWithinBounds(state.firetraps ?? []),
     playerStart: state.playerStart && state.playerStart.x < clampedWidth && state.playerStart.y < clampedHeight
       ? state.playerStart
       : null,

@@ -37,6 +37,7 @@ export function createInitialGameState(): GameState {
     doors: [],
     bullets: [],
     placedBombs: [],
+    firetraps: [],
     goalPos: null,
     theme: "sky",
     player: {
@@ -151,6 +152,22 @@ export function buildGameStateFromLevel(levelData: LevelData, currentLevel: numb
       x: door.x,
       y: door.y,
       open: Boolean(door.open)
+    })
+  );
+
+  // Convert fire traps from editor format to game format
+  state.firetraps = (levelData.firetraps ?? []).map(
+    (trap): import("../types").FireTrapState => ({
+      x: trap.x,
+      y: trap.y,
+      direction: trap.direction,
+      sprayDistance: trap.sprayDistance,
+      sprayTime: trap.sprayTime * 60,  // Convert seconds to frames
+      restTime: trap.restTime * 60,     // Convert seconds to frames
+      timer: trap.restTime * 60 - 30,   // Start with warning phase (0.5s before)
+      isActive: false,
+      warning: false,
+      fireBlocks: []
     })
   );
 

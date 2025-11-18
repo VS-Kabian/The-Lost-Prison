@@ -32,7 +32,8 @@ export type Tool =
   | "door"
   | "monster"
   | "weapon"
-  | "bomb";
+  | "bomb"
+  | "firetrap";
 
 export interface GridPosition {
   x: number;
@@ -47,6 +48,15 @@ export interface EditorDoor extends GridPosition {
   open?: boolean;
 }
 
+export type FireTrapDirection = "up" | "down" | "left" | "right";
+
+export interface EditorFireTrap extends GridPosition {
+  direction: FireTrapDirection;
+  sprayDistance: number;  // Number of blocks fire travels
+  sprayTime: number;      // Seconds fire is active
+  restTime: number;       // Seconds between sprays
+}
+
 export interface LevelData {
   name: string;
   gridWidth: number;
@@ -59,6 +69,7 @@ export interface LevelData {
   coins?: GridPosition[];
   keys: GridPosition[];
   doors: EditorDoor[];
+  firetraps?: EditorFireTrap[];
   playerStart: GridPosition | null;
   goal: GridPosition | null;
   background: BackgroundKey;
@@ -127,6 +138,19 @@ export interface PlacedBomb {
   timer: number;
 }
 
+export interface FireTrapState {
+  x: number;  // Grid x position
+  y: number;  // Grid y position
+  direction: FireTrapDirection;
+  sprayDistance: number;
+  sprayTime: number;    // In frames (60fps)
+  restTime: number;     // In frames (60fps)
+  timer: number;        // Current timer
+  isActive: boolean;    // Currently spraying
+  warning: boolean;     // Warning glow active
+  fireBlocks: GridPosition[];  // Current fire positions for collision
+}
+
 export interface GameState {
   level: number;
   keys: number;
@@ -145,6 +169,7 @@ export interface GameState {
   doors: DoorState[];
   bullets: BulletState[];
   placedBombs: PlacedBomb[];
+  firetraps: FireTrapState[];
   goalPos: GridPosition | null;
   player: PlayerState;
   startTime: number;

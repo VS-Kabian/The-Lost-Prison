@@ -159,6 +159,32 @@ export function drawEditorCanvas(
     }
   });
 
+  // Render fire traps
+  (state.firetraps ?? []).forEach((trap) => {
+    const trapX = trap.x * TILE_SIZE;
+    const trapY = trap.y * TILE_SIZE;
+
+    if (textures.fireTrapBlock?.complete) {
+      ctx.drawImage(textures.fireTrapBlock, trapX, trapY, TILE_SIZE, TILE_SIZE);
+    } else {
+      // Fallback rendering
+      ctx.fillStyle = "#ff4400";
+      ctx.fillRect(trapX, trapY, TILE_SIZE, TILE_SIZE);
+      ctx.font = "24px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("🔥", trapX + 20, trapY + 26);
+    }
+
+    // Draw direction indicator
+    ctx.save();
+    ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+    ctx.font = "bold 16px Arial";
+    ctx.textAlign = "center";
+    const arrowMap = { up: "↑", down: "↓", left: "←", right: "→" };
+    ctx.fillText(arrowMap[trap.direction], trapX + 20, trapY + 12);
+    ctx.restore();
+  });
+
   if (state.goal) {
     const goalX = state.goal.x * TILE_SIZE;
     const goalY = state.goal.y * TILE_SIZE;
