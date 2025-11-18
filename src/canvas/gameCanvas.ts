@@ -18,15 +18,33 @@ export function drawGameCanvas(
 
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
-  // Draw background image or color
+  // Calculate camera offset to follow player
+  const viewportWidth = ctx.canvas.width;
+  const viewportHeight = ctx.canvas.height;
+  const mapWidth = state.grid[0].length * TILE_SIZE;
+  const mapHeight = state.grid.length * TILE_SIZE;
+
+  // Center camera on player horizontally, position vertically with 3 blocks above player
+  let cameraX = state.player.x + state.player.width / 2 - viewportWidth / 2;
+  let cameraY = state.player.y - 2 * TILE_SIZE;
+
+  // Clamp camera to map boundaries
+  cameraX = Math.max(0, Math.min(cameraX, mapWidth - viewportWidth));
+  cameraY = Math.max(0, Math.min(cameraY, mapHeight - viewportHeight));
+
+  // Apply camera transformation
+  ctx.save();
+  ctx.translate(-cameraX, -cameraY);
+
+  // Draw background image or color (fill the entire map, not just viewport)
   if (state.background === "bg1" && textures.bg1?.complete) {
-    ctx.drawImage(textures.bg1, 0, 0, ctx.canvas.width, ctx.canvas.height);
+    ctx.drawImage(textures.bg1, 0, 0, mapWidth, mapHeight);
   } else if (state.background === "bg2" && textures.bg2?.complete) {
-    ctx.drawImage(textures.bg2, 0, 0, ctx.canvas.width, ctx.canvas.height);
+    ctx.drawImage(textures.bg2, 0, 0, mapWidth, mapHeight);
   } else {
     // Default sky blue background
     ctx.fillStyle = "#87CEEB";
-    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    ctx.fillRect(0, 0, mapWidth, mapHeight);
   }
 
   // Draw subtle grid lines (optional - can be removed for cleaner gameplay)
@@ -306,5 +324,8 @@ export function drawGameCanvas(
       }
     }
   }
+
+  // Restore context after camera transformation
+  ctx.restore();
 }
 

@@ -138,10 +138,11 @@ export default function GamePage(): JSX.Element {
     const canvas = gameCanvasRef.current;
     if (!canvas) return;
 
-    const width = gameState.grid[0]?.length ?? 20;
-    const height = gameState.grid.length ?? 15;
-    canvas.width = width * TILE_SIZE;
-    canvas.height = height * TILE_SIZE;
+    // Fixed viewport size: 11 tiles wide × 7 tiles tall (3 above + player + 3 below)
+    const VIEWPORT_WIDTH = 12;
+    const VIEWPORT_HEIGHT = 6;
+    canvas.width = VIEWPORT_WIDTH * TILE_SIZE;
+    canvas.height = VIEWPORT_HEIGHT * TILE_SIZE;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
@@ -453,7 +454,9 @@ export default function GamePage(): JSX.Element {
               0 25px 70px rgba(0, 0, 0, 0.6),
               0 0 100px rgba(139, 92, 246, 0.15),
               0 0 0 1px rgba(255, 255, 255, 0.05) inset
-            `
+            `,
+            transform: 'scale(1.5)',
+            imageRendering: 'pixelated'
           }}
         />
       </div>
