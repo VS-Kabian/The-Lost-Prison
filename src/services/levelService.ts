@@ -1,6 +1,7 @@
 import { supabase } from '../config/supabase';
 import type { LevelData } from '../types';
 import type { Database } from '../types/database.types';
+import { processLevelName } from '../utils/sanitize';
 
 type Level = Database['public']['Tables']['levels']['Row'];
 type LevelInsert = Database['public']['Tables']['levels']['Insert'];
@@ -111,10 +112,13 @@ export async function createLevel(
   levelNumber: number,
   userId: string
 ): Promise<Level> {
+  // Sanitize level name to prevent XSS attacks
+  const sanitizedName = processLevelName(levelData.name);
+
   const levelInsert: LevelInsert = {
-    name: levelData.name,
+    name: sanitizedName,
     level_number: levelNumber,
-    map_data: levelData as any, // Store entire LevelData as JSONB
+    map_data: { ...levelData, name: sanitizedName } as any, // Store entire LevelData with sanitized name
     background: levelData.background,
     is_published: false,
     created_by: userId,
@@ -137,9 +141,12 @@ export async function updateLevel(
   id: string,
   levelData: LevelData
 ): Promise<Level> {
+  // Sanitize level name to prevent XSS attacks
+  const sanitizedName = processLevelName(levelData.name);
+
   const levelUpdate: LevelUpdate = {
-    name: levelData.name,
-    map_data: levelData as any,
+    name: sanitizedName,
+    map_data: { ...levelData, name: sanitizedName } as any,
     background: levelData.background,
   };
 
@@ -209,10 +216,87 @@ export async function deleteLevel(id: string): Promise<void> {
 }
 
 /**
- * Convert Supabase level to LevelData format
+ * Validate level data structure at runtime
+ * @throws Error if data is invalid
+ */
+function validateLevelData(data: unknown): data is LevelData {
+  if (!data || typeof data !== 'object') {
+    throw new Error('Level data must be an object');
+  }
+
+  const d = data as any;
+
+  // Validate required string fields
+  if (typeof d.name !== 'string' || d.name.length === 0) {
+    throw new Error('Level must have a non-empty name');
+  }
+
+  // Validate grid is 2D array of numbers
+  if (!Array.isArray(d.grid)) {
+    throw new Error('Level grid must be an array');
+  }
+
+  for (let i = 0; i < d.grid.length; i++) {
+    if (!Array.isArray(d.grid[i])) {
+      throw new Error(`Grid row ${i} must be an array`);
+    }
+    for (let j = 0; j < d.grid[i].length; j++) {
+      if (typeof d.grid[i][j] !== 'number') {
+        throw new Error(`Grid cell [${i}][${j}] must be a number`);
+      }
+    }
+  }
+
+  // Validate position objects have x and y numbers
+  const validatePositionArray = (arr: any, name: string) => {
+    if (!Array.isArray(arr)) {
+      throw new Error(`${name} must be an array`);
+    }
+    arr.forEach((item, index) => {
+      if (typeof item?.x !== 'number' || typeof item?.y !== 'number') {
+        throw new Error(`${name}[${index}] must have numeric x and y properties`);
+      }
+    });
+  };
+
+  // Validate all position-based arrays
+  validatePositionArray(d.monsters || [], 'monsters');
+  validatePositionArray(d.weapons || [], 'weapons');
+  validatePositionArray(d.bombs || [], 'bombs');
+  validatePositionArray(d.keys || [], 'keys');
+  validatePositionArray(d.doors || [], 'doors');
+  validatePositionArray(d.firetraps || [], 'firetraps');
+
+  // Validate playerStart and goal
+  if (!d.playerStart || typeof d.playerStart.x !== 'number' || typeof d.playerStart.y !== 'number') {
+    throw new Error('playerStart must have numeric x and y properties');
+  }
+  if (!d.goal || typeof d.goal.x !== 'number' || typeof d.goal.y !== 'number') {
+    throw new Error('goal must have numeric x and y properties');
+  }
+
+  // Validate background
+  const validBackgrounds = ['none', 'bg1', 'bg2', 'bg3', 'bg4', 'bg5', 'bg6'];
+  if (!validBackgrounds.includes(d.background)) {
+    throw new Error(`background must be one of: ${validBackgrounds.join(', ')}`);
+  }
+
+  return true;
+}
+
+/**
+ * Convert Supabase level to LevelData format with validation
  */
 export function levelToLevelData(level: Level): LevelData {
-  return level.map_data as unknown as LevelData;
+  const data = level.map_data as unknown;
+
+  try {
+    validateLevelData(data);
+  } catch (error) {
+    throw new Error(`Invalid level data for "${level.name}" (ID: ${level.id}): ${error instanceof Error ? error.message : 'Unknown validation error'}`);
+  }
+
+  return data as LevelData;
 }
 
 /**

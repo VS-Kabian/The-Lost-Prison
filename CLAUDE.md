@@ -60,6 +60,8 @@ src/
 │   └── AdminLoginPage.tsx   # Admin authentication
 ├── components/
 │   ├── ProtectedRoute.tsx   # Route guard (admin only)
+│   ├── ErrorBoundary.tsx    # React error boundary (catches rendering errors)
+│   ├── TouchControls.tsx    # Mobile touch controls for landscape mode
 │   ├── Navbar.tsx           # Navigation (legacy, mostly removed)
 │   └── LevelSelector.tsx    # Grid of published levels
 ├── state/
@@ -75,7 +77,8 @@ src/
 │   └── useAudio.ts          # Audio system hook
 └── utils/
     ├── logger.ts            # Secure logging utility (dev-only output)
-    └── storage.ts           # localStorage operations (legacy)
+    ├── sanitize.ts          # Input sanitization (XSS prevention)
+    └── storage.ts           # localStorage operations (legacy, deprecated)
 
 public/
 ├── Images/                  # Game textures and backgrounds
@@ -130,6 +133,12 @@ Protected routes require `role='admin'` in the user's profile (Supabase RLS enfo
 - Checks `useAuth()` for authenticated user
 - If `requireAdmin`, checks `isAdmin()` from context
 - Shows "Access Denied" if not authorized
+
+**Token Refresh UX** ([AuthContext.tsx](src/contexts/AuthContext.tsx)):
+- Supabase automatically refreshes JWT tokens before expiry
+- Toast notifications shown for auth events: TOKEN_REFRESHED, SIGNED_IN, SIGNED_OUT
+- Prevents user confusion when session updates in background
+- All timeouts properly cleaned up to prevent memory leaks
 
 ### Data Flow
 
@@ -288,14 +297,22 @@ export const BOMB_BLAST_RADIUS = 2;
 // 1. Fetch from Supabase
 const levels = await getPublishedLevels();
 
-// 2. Convert row to LevelData
+// 2. Convert row to LevelData with validation
 const levelData = levelToLevelData(supabaseLevel);
+// This runs validateLevelData() which checks:
+// - Grid is 2D array of numbers
+// - All position arrays have x/y coordinates
+// - Required fields present (name, playerStart, goal)
+// - Background is valid enum value
 
 // 3. Build game state with level number
 const gameState = buildGameStateFromLevel(levelData, level.level_number);
 ```
 
-**IMPORTANT**: `buildGameStateFromLevel()` requires TWO parameters: `levelData` and `currentLevel` (number).
+**IMPORTANT**:
+- `buildGameStateFromLevel()` requires TWO parameters: `levelData` and `currentLevel` (number)
+- `levelToLevelData()` validates data structure and throws on invalid data
+- Always sanitize level names with `processLevelName()` before saving
 
 ### Collision Detection
 
@@ -777,19 +794,104 @@ logError("message", errorObject);     // Development-only error logging
 - ✅ Admin role cannot be self-assigned (database-only operation)
 - ✅ TypeScript strict mode prevents type-related vulnerabilities
 - ✅ No privilege escalation paths in client code
+- ✅ Input validation and sanitization (see [SECURITY.md](SECURITY.md))
+- ✅ Error boundaries prevent white screen crashes
+- ✅ Memory leak prevention with proper cleanup
+
+### Security Patterns
+
+**Memory Leak Prevention**:
+All `setTimeout` calls must use refs with cleanup in `useEffect`:
+```typescript
+const timeoutRef = useRef<number>();
+
+// Setting timeout
+if (timeoutRef.current) {
+  window.clearTimeout(timeoutRef.current);
+}
+timeoutRef.current = window.setTimeout(() => {
+  // action
+}, delay);
+
+// Cleanup
+useEffect(() => {
+  return () => {
+    if (timeoutRef.current) {
+      window.clearTimeout(timeoutRef.current);
+    }
+  };
+}, []);
+```
+
+**Input Validation**:
+Always validate data from Supabase before using:
+```typescript
+import { processLevelName } from '../utils/sanitize';
+
+// Sanitize level names (removes XSS patterns)
+const sanitizedName = processLevelName(userInput);
+
+// Validate level data structure at runtime
+validateLevelData(data); // Throws if invalid
+```
+
+**Error Boundaries**:
+All user-facing React trees wrapped in ErrorBoundary ([ErrorBoundary.tsx](src/components/ErrorBoundary.tsx)):
+- Catches rendering errors
+- Shows user-friendly fallback UI
+- Logs errors in development only
+- Prevents entire app crash
+
+**Type Safety**:
+- No `any` types in production code
+- Runtime validation for external data (Supabase)
+- Null checks before numeric operations
+- Proper TypeScript interfaces for all API responses
+
+See [SECURITY.md](SECURITY.md) for comprehensive security documentation including rate limiting setup.
+
+## Mobile Optimization
+
+**Touch Controls** ([TouchControls.tsx](src/components/TouchControls.tsx)):
+- Landscape mode only (auto-detects with `useMobileDetection`)
+- Left side: Left/Right movement arrows
+- Right side: Jump button (up) + Action button (shoot/door/bomb)
+- Action button: Short press = shoot, Long press (>300ms) = door/bomb
+- Positioned at bottom corners to avoid covering gameplay
+- Uses `env(safe-area-inset-*)` for notch/safe area handling
+
+**Mobile UI Patterns**:
+- Horizontal 3-dot menu (⋯) styled like level badge
+- Center-aligned close button in menu
+- Full viewport usage with `overflow-hidden`
+- Canvas maximized to `calc(100vh - 115px)` on mobile
+- Touch-friendly 44px minimum button size
+- Glass morphism HUD with `backdrop-blur`
+
+**Responsive Design** ([index.css](src/index.css)):
+- `@media (max-width: 1024px)`: Tablet/mobile styles
+- `@media (orientation: landscape)`: Mobile landscape mode
+- `@media (pointer: coarse)`: Touch device optimizations
+- Prevents text selection and tap highlighting on touch devices
+- Optimized canvas rendering with `touch-action: none`
 
 ## Key Architectural Patterns
 
 - **React Router** for route-based navigation
 - **Protected routes** with role-based access control
 - **Supabase RLS** for database security
-- **Context API** for authentication state
+- **Context API** for authentication state with token refresh UX
 - **Service layer** for API abstractions
+- **Error boundaries** for graceful error handling
 - **Ref-based optimization** for game loop (avoid re-render issues)
 - **Canvas immediate mode rendering** - Full redraw each frame
 - **Immutable state updates** with spread operators
-- **TypeScript strict mode** throughout
+- **TypeScript strict mode** throughout with runtime validation
 - **Grid-to-pixel coordinate conversion** for editor/game separation
 - **Background rendering inside canvas** for proper layout
 - **Fixed viewport with no scrolling** for game pages
 - **Secure logging** with development-only output
+- **Input sanitization** for all user inputs (XSS prevention)
+- **Memory leak prevention** with proper cleanup patterns
+- **Mobile-first touch controls** for landscape gameplay
+- **Responsive design** with safe area handling

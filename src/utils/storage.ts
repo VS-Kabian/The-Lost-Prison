@@ -4,11 +4,29 @@ import { logError } from "./logger";
 const LEVEL_PREFIX = "level_";
 const TUTORIAL_KEY = "seenTutorial";
 
+/**
+ * @deprecated This function is deprecated. Use Supabase levelService instead.
+ * localStorage is not encrypted and should not be used for level data.
+ * See: src/services/levelService.ts (createLevel, updateLevel, upsertLevel)
+ */
 export function saveLevelToStorage(level: number, data: LevelData): void {
+  console.warn(
+    'saveLevelToStorage() is deprecated. Use Supabase levelService (upsertLevel) instead. ' +
+    'localStorage is not encrypted and poses security risks.'
+  );
   localStorage.setItem(`${LEVEL_PREFIX}${level}`, JSON.stringify(data));
 }
 
+/**
+ * @deprecated This function is deprecated. Use Supabase levelService instead.
+ * localStorage is not encrypted and should not be used for level data.
+ * See: src/services/levelService.ts (getLevelByNumber, getLevelById)
+ */
 export function loadLevelFromStorage(level: number): LevelData | null {
+  console.warn(
+    'loadLevelFromStorage() is deprecated. Use Supabase levelService (getLevelByNumber) instead. ' +
+    'localStorage is not encrypted and poses security risks.'
+  );
   const raw = localStorage.getItem(`${LEVEL_PREFIX}${level}`);
   if (!raw) {
     return null;

@@ -13,6 +13,20 @@ interface ProgressData {
 }
 
 /**
+ * Type for progress with joined profile data from Supabase
+ */
+interface ProgressWithProfile extends Progress {
+  profiles: { username: string } | null;
+}
+
+/**
+ * Type for leaderboard entries with flattened username
+ */
+interface LeaderboardEntry extends Progress {
+  username: string;
+}
+
+/**
  * Get player's progress for a specific level
  */
 export async function getPlayerProgress(
@@ -61,18 +75,22 @@ export async function upsertProgress(
 
   if (existing) {
     // Update only if new time is better or level just completed
+    const existingBestTime = typeof existing.best_time === 'number' ? existing.best_time : null;
     const shouldUpdate =
       !existing.completed ||
       (progressData.completed &&
-       existing.best_time !== null &&
-       progressData.time < existing.best_time);
+       existingBestTime !== null &&
+       progressData.time < existingBestTime);
 
     if (shouldUpdate) {
+      const existingDeaths = typeof existing.total_deaths === 'number' ? existing.total_deaths : 0;
+      const existingScore = typeof existing.score === 'number' ? existing.score : 0;
+
       const update: ProgressUpdate = {
         completed: progressData.completed,
         best_time: progressData.time,
-        total_deaths: existing.total_deaths + progressData.deaths,
-        score: Math.max(progressData.score, existing.score),
+        total_deaths: existingDeaths + progressData.deaths,
+        score: Math.max(progressData.score, existingScore),
         completed_at: progressData.completed ? new Date().toISOString() : existing.completed_at,
       };
 
@@ -116,7 +134,7 @@ export async function upsertProgress(
 export async function getLeaderboard(
   levelId: string,
   limit = 10
-): Promise<Array<Progress & { username: string }>> {
+): Promise<LeaderboardEntry[]> {
   const { data, error } = await supabase
     .from('progress')
     .select(`
@@ -130,11 +148,14 @@ export async function getLeaderboard(
 
   if (error) throw error;
 
-  // Transform the data to flatten the profiles object
-  return (data || []).map((item: any) => ({
-    ...item,
-    username: item.profiles?.username || 'Anonymous',
-  }));
+  // Transform the data to flatten the profiles object with type safety
+  return (data as ProgressWithProfile[] || []).map((item): LeaderboardEntry => {
+    const { profiles, ...progress } = item;
+    return {
+      ...progress,
+      username: profiles?.username || 'Anonymous',
+    };
+  });
 }
 
 /**
@@ -142,7 +163,7 @@ export async function getLeaderboard(
  */
 export async function getGlobalLeaderboard(
   limit = 10
-): Promise<Array<Progress & { username: string }>> {
+): Promise<LeaderboardEntry[]> {
   const { data, error } = await supabase
     .from('progress')
     .select(`
@@ -155,10 +176,14 @@ export async function getGlobalLeaderboard(
 
   if (error) throw error;
 
-  return (data || []).map((item: any) => ({
-    ...item,
-    username: item.profiles?.username || 'Anonymous',
-  }));
+  // Transform the data to flatten the profiles object with type safety
+  return (data as ProgressWithProfile[] || []).map((item): LeaderboardEntry => {
+    const { profiles, ...progress } = item;
+    return {
+      ...progress,
+      username: profiles?.username || 'Anonymous',
+    };
+  });
 }
 
 /**
@@ -173,11 +198,24 @@ export async function getPlayerStats(playerId: string): Promise<{
   const progress = await getAllPlayerProgress(playerId);
 
   const completed = progress.filter(p => p.completed);
-  const totalDeaths = progress.reduce((sum, p) => sum + p.total_deaths, 0);
+
+  // Safe numeric aggregation with null checks
+  const totalDeaths = progress.reduce((sum, p) => {
+    const deaths = typeof p.total_deaths === 'number' ? p.total_deaths : 0;
+    return sum + deaths;
+  }, 0);
+
   const avgTime = completed.length > 0
-    ? completed.reduce((sum, p) => sum + (p.best_time || 0), 0) / completed.length
+    ? completed.reduce((sum, p) => {
+        const time = typeof p.best_time === 'number' ? p.best_time : 0;
+        return sum + time;
+      }, 0) / completed.length
     : 0;
-  const bestScore = progress.reduce((max, p) => Math.max(max, p.score), 0);
+
+  const bestScore = progress.reduce((max, p) => {
+    const score = typeof p.score === 'number' ? p.score : 0;
+    return Math.max(max, score);
+  }, 0);
 
   return {
     totalLevelsCompleted: completed.length,

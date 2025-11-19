@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTextures } from "../hooks/useTextures";
 import { useAudio } from "../hooks/useAudio";
+import { useMobileDetection } from "../hooks/useMobileDetection";
 import { drawGameCanvas } from "../canvas/gameCanvas";
 import {
   buildGameStateFromLevel,
@@ -14,6 +15,7 @@ import { TILE_SIZE, type GameState } from "../types";
 import { getPublishedLevels, levelToLevelData } from "../services/levelService";
 import type { Database } from "../types/database.types";
 import LevelSelector from "../components/LevelSelector";
+import { TouchControls } from "../components/TouchControls";
 import { logError } from "../utils/logger";
 
 type Level = Database['public']['Tables']['levels']['Row'];
@@ -26,14 +28,21 @@ export default function GamePage(): JSX.Element {
   const [showLevelSelector, setShowLevelSelector] = useState(false);
   const [showControls, setShowControls] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [canvasScale, setCanvasScale] = useState(1.5); // Default desktop scale
+  const [showTouchControls, setShowTouchControls] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [actionPressStart, setActionPressStart] = useState<number | null>(null);
   const { textures } = useTextures();
   const { playSound, playBackgroundMusic, stopBackgroundMusic, setMuted, enableAudio, enabled, loaded } = useAudio();
+  const { isMobileLandscape } = useMobileDetection();
 
   const gameCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const keysRef = useRef<KeyMap>({});
   const gameStateRef = useRef<GameState>(gameState);
   const levelCompleteRef = useRef<boolean>(false);
   const playerDeadRef = useRef<boolean>(false);
+  const playerDeathTimeoutRef = useRef<number>();
+  const levelCompleteTimeoutRef = useRef<number>();
 
   useEffect(() => {
     gameStateRef.current = gameState;
@@ -132,6 +141,62 @@ export default function GamePage(): JSX.Element {
     }
   };
 
+  // Responsive touch controls visibility
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      setShowTouchControls(width < 1024); // Show on mobile/tablet, hide on desktop
+    };
+
+    handleResize(); // Initial check
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Dynamic canvas scaling for mobile
+  useEffect(() => {
+    const calculateCanvasScale = () => {
+      const isMobile = window.innerWidth < 1024;
+
+      if (!isMobile) {
+        setCanvasScale(1.5); // Desktop default - always reset to 1.5
+        return;
+      }
+
+      // Mobile scale calculation
+      const hudHeight = 40;  // Absolute minimal HUD
+      const controlsHeight = 75; // Ultra-compact controls (65px buttons + minimal gaps)
+
+      // Use FULL viewport with no padding
+      const availableWidth = window.innerWidth;
+      const availableHeight = window.innerHeight - hudHeight - controlsHeight;
+
+      // Calculate tile-based scale (12x6 tiles)
+      const VIEWPORT_WIDTH = 12;
+      const VIEWPORT_HEIGHT = 6;
+      const baseCanvasWidth = VIEWPORT_WIDTH * TILE_SIZE; // 480px
+      const baseCanvasHeight = VIEWPORT_HEIGHT * TILE_SIZE; // 240px
+
+      const scaleX = availableWidth / baseCanvasWidth;
+      const scaleY = availableHeight / baseCanvasHeight;
+
+      // Use minimum to maintain aspect ratio but apply 110% multiplier for extra size
+      const optimalScale = Math.min(scaleX, scaleY) * 1.1;
+
+      // Round to 2 decimals
+      const scale = Math.round(optimalScale * 100) / 100;
+
+      setCanvasScale(Math.max(scale, 1.5)); // Minimum 1.5x scale
+    };
+
+    // Initial calculation
+    calculateCanvasScale();
+
+    // Recalculate on window resize (handles DevTools viewport changes)
+    window.addEventListener("resize", calculateCanvasScale);
+    return () => window.removeEventListener("resize", calculateCanvasScale);
+  }, [isMobileLandscape]);
+
   useEffect(() => {
     if (!currentLevel) return;
 
@@ -173,7 +238,11 @@ export default function GamePage(): JSX.Element {
         if (events.playerDied && !playerDeadRef.current) {
           playerDeadRef.current = true;
           playSound("playerOut");
-          setTimeout(() => {
+          // Clear any existing timeout before setting new one
+          if (playerDeathTimeoutRef.current) {
+            window.clearTimeout(playerDeathTimeoutRef.current);
+          }
+          playerDeathTimeoutRef.current = window.setTimeout(() => {
             if (currentLevel) {
               loadLevel(currentLevel);
             }
@@ -182,7 +251,11 @@ export default function GamePage(): JSX.Element {
 
         if (events.levelComplete && !levelCompleteRef.current) {
           levelCompleteRef.current = true;
-          setTimeout(() => {
+          // Clear any existing timeout before setting new one
+          if (levelCompleteTimeoutRef.current) {
+            window.clearTimeout(levelCompleteTimeoutRef.current);
+          }
+          levelCompleteTimeoutRef.current = window.setTimeout(() => {
             handleNextLevel();
           }, 1000);
         }
@@ -204,6 +277,18 @@ export default function GamePage(): JSX.Element {
     let animationId = requestAnimationFrame(update);
     return () => cancelAnimationFrame(animationId);
   }, [currentLevel, textures]);
+
+  // Cleanup: Clear timeouts on unmount to prevent race conditions
+  useEffect(() => {
+    return () => {
+      if (playerDeathTimeoutRef.current) {
+        window.clearTimeout(playerDeathTimeoutRef.current);
+      }
+      if (levelCompleteTimeoutRef.current) {
+        window.clearTimeout(levelCompleteTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Keyboard handlers
   useEffect(() => {
@@ -266,6 +351,90 @@ export default function GamePage(): JSX.Element {
       window.removeEventListener("keyup", handleKeyUp);
     };
   }, []);
+
+  // Touch control handlers for mobile
+  const handleLeftStart = () => {
+    keysRef.current["ArrowLeft"] = true;
+  };
+
+  const handleLeftEnd = () => {
+    keysRef.current["ArrowLeft"] = false;
+  };
+
+  const handleRightStart = () => {
+    keysRef.current["ArrowRight"] = true;
+  };
+
+  const handleRightEnd = () => {
+    keysRef.current["ArrowRight"] = false;
+  };
+
+  const handleJump = () => {
+    if (gameStateRef.current.player.onGround) {
+      playSound("jump");
+      setGameState(prev => {
+        const next = { ...prev, player: { ...prev.player } };
+        jump(next.player);
+        return next;
+      });
+    }
+  };
+
+  // Action button: Long press detection for mobile
+  const handleActionStart = () => {
+    setActionPressStart(Date.now());
+  };
+
+  const handleActionEnd = () => {
+    if (actionPressStart === null) return;
+
+    const pressDuration = Date.now() - actionPressStart;
+    const state = gameStateRef.current;
+    setActionPressStart(null);
+
+    // Long press (>= 300ms): Try door first, then bomb
+    if (pressDuration >= 300) {
+      // Try to open door if near one and has key
+      if (state.keys > 0) {
+        setGameState(prev => {
+          const next = { ...prev };
+          const opened = tryOpenDoor(next);
+          if (opened) {
+            playSound("itemPick");
+            return next;
+          }
+          // If door didn't open, try bomb instead
+          if (state.bombCount > 0) {
+            playSound("itemPick");
+            return {
+              ...next,
+              placedBombs: [...next.placedBombs, createPlacedBomb(next.player)],
+              bombCount: next.bombCount - 1
+            };
+          }
+          return next;
+        });
+      } else if (state.bombCount > 0) {
+        // No key, just place bomb
+        playSound("itemPick");
+        setGameState(prev => ({
+          ...prev,
+          placedBombs: [...prev.placedBombs, createPlacedBomb(prev.player)],
+          bombCount: prev.bombCount - 1
+        }));
+      }
+    } else {
+      // Short press (< 300ms): Shoot
+      if (state.player.hasWeapon && state.ammo > 0) {
+        playSound("gunShoot");
+        setGameState(prev => ({
+          ...prev,
+          bullets: [...prev.bullets, createPlayerBullet(prev.player)],
+          ammo: prev.ammo - 1
+        }));
+      }
+    }
+  };
 
   if (loading) {
     return (
@@ -334,126 +503,256 @@ export default function GamePage(): JSX.Element {
   return (
     <div className="flex h-screen flex-col bg-slate-100 overflow-hidden">
       {/* Modern Top Bar */}
-      <div className="bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 px-4 py-2 shadow-xl flex-shrink-0">
-        <div className="flex items-center justify-between">
-          {/* Left: Title + Level */}
-          <div className="flex items-center gap-3">
-            <h1 className="text-white font-bold text-lg tracking-tight flex items-center gap-2">
-              🎮 <span>The Lost Prison</span>
-            </h1>
-            <div className="bg-white/20 backdrop-blur-sm rounded-full px-3 py-1 text-white text-xs font-bold">
-              Level {currentLevel?.level_number || 1}
+      <div className={`flex-shrink-0 ${
+        isMobileLandscape
+          ? 'px-2 py-1 absolute top-0 left-0 right-0 z-50'
+          : 'bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 shadow-xl px-4 py-2'
+      }`}
+        style={isMobileLandscape ? {
+          paddingLeft: 'max(0.5rem, env(safe-area-inset-left))',
+          paddingRight: 'max(0.5rem, env(safe-area-inset-right))',
+          paddingTop: 'max(0.25rem, env(safe-area-inset-top))'
+        } : undefined}
+      >
+        <div className={`flex items-center ${
+          isMobileLandscape ? 'justify-center mobile-hud-text-shadow' : 'justify-between'
+        }`}>
+          {/* Desktop: Title + Level */}
+          {!isMobileLandscape && (
+            <div className="flex items-center gap-3">
+              <h1 className="text-white font-bold tracking-tight flex items-center gap-1 text-lg">
+                🎮 <span>The Lost Prison</span>
+              </h1>
+              <div className="bg-white/20 backdrop-blur-sm rounded-full text-white font-bold px-3 py-1 text-xs">
+                Lv {currentLevel?.level_number || 1}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Center: Compact Stats HUD */}
-          <div className="flex items-center gap-1 bg-black/20 backdrop-blur-sm rounded-full px-4 py-1.5">
+          {/* Center: Level + Compact Stats HUD + Menu Button */}
+          <div className={`flex items-center ${isMobileLandscape ? 'gap-2' : 'gap-0'}`}>
+            {/* Mobile: Level indicator */}
+            {isMobileLandscape && (
+              <div className="bg-white/20 backdrop-blur-sm rounded-full text-white font-bold px-2 py-0.5 text-xs">
+                Lv {currentLevel?.level_number || 1}
+              </div>
+            )}
+
+            {/* Stats HUD */}
+            <div className={`flex items-center bg-black/20 backdrop-blur-sm rounded-full ${
+              isMobileLandscape ? 'gap-0.5 px-2 py-1' : 'gap-1 px-4 py-1.5'
+            }`}>
             {/* Keys */}
-            <div className="flex items-center gap-1 px-2">
-              <span className="text-yellow-300 text-sm">🔑</span>
+            <div className={`flex items-center gap-0.5 ${isMobileLandscape ? 'px-1' : 'px-2'}`}>
+              <span className={isMobileLandscape ? 'text-xs' : 'text-sm'}>🔑</span>
               <span className="text-white text-xs font-bold min-w-[1ch]">{gameState.keys}</span>
             </div>
-            <div className="w-px h-4 bg-white/20"></div>
+            <div className={`w-px bg-white/20 ${isMobileLandscape ? 'h-3' : 'h-4'}`}></div>
 
             {/* Ammo */}
-            <div className="flex items-center gap-1 px-2">
-              <span className="text-blue-300 text-sm">🔫</span>
+            <div className={`flex items-center gap-0.5 ${isMobileLandscape ? 'px-1' : 'px-2'}`}>
+              <span className={isMobileLandscape ? 'text-xs' : 'text-sm'}>🔫</span>
               <span className="text-white text-xs font-bold min-w-[1ch]">{gameState.ammo}</span>
             </div>
-            <div className="w-px h-4 bg-white/20"></div>
+            <div className={`w-px bg-white/20 ${isMobileLandscape ? 'h-3' : 'h-4'}`}></div>
 
             {/* Health Bar */}
-            <div className="flex items-center gap-1.5 px-2">
-              <span className="text-red-400 text-sm">❤️</span>
+            <div className={`flex items-center ${isMobileLandscape ? 'gap-1 px-1' : 'gap-1.5 px-2'}`}>
+              <span className={isMobileLandscape ? 'text-xs' : 'text-sm'}>❤️</span>
               <div className="flex items-center gap-0.5">
                 {Array.from({ length: Math.min(gameState.health, 10) }).map((_, i) => (
                   <div
                     key={i}
-                    className="w-1.5 h-3 rounded-full bg-gradient-to-b from-red-400 to-red-600"
+                    className={`rounded-full bg-gradient-to-b from-red-400 to-red-600 ${
+                      isMobileLandscape ? 'w-1 h-2' : 'w-1.5 h-3'
+                    }`}
                   />
                 ))}
               </div>
             </div>
-            <div className="w-px h-4 bg-white/20"></div>
+            <div className={`w-px bg-white/20 ${isMobileLandscape ? 'h-3' : 'h-4'}`}></div>
 
             {/* Bombs */}
-            <div className="flex items-center gap-1 px-2">
-              <span className="text-orange-400 text-sm">💣</span>
+            <div className={`flex items-center gap-0.5 ${isMobileLandscape ? 'px-1' : 'px-2'}`}>
+              <span className={isMobileLandscape ? 'text-xs' : 'text-sm'}>💣</span>
               <span className="text-white text-xs font-bold min-w-[1ch]">{gameState.bombCount}</span>
             </div>
-            <div className="w-px h-4 bg-white/20"></div>
+            {!isMobileLandscape && <div className="w-px h-4 bg-white/20"></div>}
 
-            {/* Time */}
-            <div className="flex items-center gap-1 px-2">
-              <span className="text-cyan-300 text-sm">⏱️</span>
-              <span className="text-white text-xs font-bold min-w-[2ch]">{gameState.time}s</span>
-            </div>
-            <div className="w-px h-4 bg-white/20"></div>
+            {/* Time - Hide on mobile */}
+            {!isMobileLandscape && (
+              <div className="flex items-center gap-1 px-2">
+                <span className="text-cyan-300 text-sm">⏱️</span>
+                <span className="text-white text-xs font-bold min-w-[2ch]">{gameState.time}s</span>
+              </div>
+            )}
+            {!isMobileLandscape && <div className="w-px h-4 bg-white/20"></div>}
 
-            {/* Deaths */}
-            <div className="flex items-center gap-1 px-2">
-              <span className="text-gray-400 text-sm">💀</span>
-              <span className="text-white text-xs font-bold min-w-[1ch]">{gameState.deaths}</span>
+            {/* Deaths - Hide on mobile */}
+            {!isMobileLandscape && (
+              <div className="flex items-center gap-1 px-2">
+                <span className="text-gray-400 text-sm">💀</span>
+                <span className="text-white text-xs font-bold min-w-[1ch]">{gameState.deaths}</span>
+              </div>
+            )}
             </div>
+
+            {/* Mobile: Menu Button (next to stats) */}
+            {isMobileLandscape && (
+              <button
+                onClick={() => setShowMobileMenu(true)}
+                className="bg-white/20 backdrop-blur-sm rounded-lg text-white font-bold px-2 py-0.5 text-xs transition-all inline-flex items-center justify-center ml-1 hover:bg-white/30"
+                style={{ minHeight: 'auto', minWidth: 'auto' }}
+                title="Menu"
+              >
+                ⋯
+              </button>
+            )}
           </div>
 
-          {/* Right: Minimal Action Buttons */}
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={handleRestart}
-              className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm transition-all hover:scale-110 flex items-center justify-center"
-              title="Restart Level"
-            >
-              🔄
-            </button>
-            <button
-              onClick={handlePrevLevel}
-              disabled={!currentLevel || publishedLevels.findIndex(l => l.id === currentLevel.id) === 0}
-              className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm transition-all hover:scale-110 flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100"
-              title="Previous Level"
-            >
-              ⏮️
-            </button>
-            <button
-              onClick={handleNextLevel}
-              disabled={!currentLevel || publishedLevels.findIndex(l => l.id === currentLevel.id) === publishedLevels.length - 1}
-              className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm transition-all hover:scale-110 flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100"
-              title="Next Level"
-            >
-              ⏭️
-            </button>
-            <div className="w-px h-6 bg-white/20 mx-1"></div>
-            <button
-              onClick={() => setShowControls(!showControls)}
-              className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm transition-all hover:scale-110 flex items-center justify-center"
-              title="Toggle Controls"
-            >
-              🎮
-            </button>
-            <button
-              onClick={() => setShowLevelSelector(true)}
-              className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm transition-all hover:scale-110 flex items-center justify-center"
-              title="Level Select"
-            >
-              📋
-            </button>
-            <button
-              onClick={() => {
-                const newMutedState = !isMuted;
-                setIsMuted(newMutedState);
+          {/* Desktop: Action Buttons */}
+          {!isMobileLandscape && (
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={handleRestart}
+                className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm transition-all hover:scale-110 flex items-center justify-center"
+                title="Restart Level"
+              >
+                🔄
+              </button>
+              <button
+                onClick={handlePrevLevel}
+                disabled={!currentLevel || publishedLevels.findIndex(l => l.id === currentLevel.id) === 0}
+                className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm transition-all hover:scale-110 flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100"
+                title="Previous Level"
+              >
+                ⏮️
+              </button>
+              <button
+                onClick={handleNextLevel}
+                disabled={!currentLevel || publishedLevels.findIndex(l => l.id === currentLevel.id) === publishedLevels.length - 1}
+                className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm transition-all hover:scale-110 flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100"
+                title="Next Level"
+              >
+                ⏭️
+              </button>
+              <div className="w-px h-6 bg-white/20 mx-1"></div>
+              <button
+                onClick={() => setShowControls(!showControls)}
+                className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm transition-all hover:scale-110 flex items-center justify-center"
+                title="Toggle Controls"
+              >
+                🎮
+              </button>
+              <button
+                onClick={() => setShowLevelSelector(true)}
+                className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm transition-all hover:scale-110 flex items-center justify-center"
+                title="Level Select"
+              >
+                📋
+              </button>
+              <button
+                onClick={() => {
+                  const newMutedState = !isMuted;
+                  setIsMuted(newMutedState);
                 setMuted(newMutedState);
               }}
-              className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm transition-all hover:scale-110 flex items-center justify-center"
+              className={`rounded-lg bg-white/10 hover:bg-white/20 text-white transition-all hover:scale-110 flex items-center justify-center ${
+                isMobileLandscape ? 'w-6 h-6 text-xs' : 'w-8 h-8 text-sm'
+              }`}
               title={isMuted ? "Unmute sound" : "Mute sound"}
             >
               {isMuted ? "🔇" : "🔊"}
             </button>
-          </div>
+            </div>
+          )}
         </div>
       </div>
 
+      {/* Mobile Menu Popup */}
+      {showMobileMenu && isMobileLandscape && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+          {/* Dark overlay */}
+          <div
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => setShowMobileMenu(false)}
+          ></div>
+
+          {/* Menu popup - Compact */}
+          <div className="relative bg-white rounded-xl shadow-2xl overflow-hidden" style={{ width: '220px' }}>
+            {/* Header */}
+            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-2">
+              <h3 className="text-white font-bold text-base">Menu</h3>
+            </div>
+
+            {/* Menu items */}
+            <div className="p-1.5">
+              <button
+                onClick={() => {
+                  handleRestart();
+                  setShowMobileMenu(false);
+                }}
+                className="w-full px-4 py-2 text-left hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-2"
+              >
+                <span className="text-lg">🔄</span>
+                <span className="text-sm text-slate-700">Restart Level</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  handlePrevLevel();
+                  setShowMobileMenu(false);
+                }}
+                disabled={!currentLevel || publishedLevels.findIndex(l => l.id === currentLevel.id) === 0}
+                className="w-full px-4 py-2 text-left hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <span className="text-lg">⏮️</span>
+                <span className="text-sm text-slate-700">Previous Level</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  handleNextLevel();
+                  setShowMobileMenu(false);
+                }}
+                disabled={!currentLevel || publishedLevels.findIndex(l => l.id === currentLevel.id) === publishedLevels.length - 1}
+                className="w-full px-4 py-2 text-left hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <span className="text-lg">⏭️</span>
+                <span className="text-sm text-slate-700">Next Level</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  const newMutedState = !isMuted;
+                  setIsMuted(newMutedState);
+                  setMuted(newMutedState);
+                  setShowMobileMenu(false);
+                }}
+                className="w-full px-4 py-2 text-left hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-2"
+              >
+                <span className="text-lg">{isMuted ? "🔇" : "🔊"}</span>
+                <span className="text-sm text-slate-700">Sound {isMuted ? "Off" : "On"}</span>
+              </button>
+
+              <div className="h-px bg-slate-200 my-1"></div>
+
+              <button
+                onClick={() => setShowMobileMenu(false)}
+                className="w-full px-4 py-2 text-center hover:bg-slate-100 rounded-lg transition-colors flex justify-center items-center gap-2"
+              >
+                <span className="text-lg">✕</span>
+                <span className="text-sm text-slate-700">Close</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Game Canvas with Ambient Glow */}
-      <div className="flex flex-1 items-center justify-center p-6 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 overflow-hidden relative">
+      <div className={`flex items-center justify-center bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 overflow-hidden relative ${
+        showTouchControls ? 'p-0 h-screen' : 'flex-1 p-6'
+      }`}>
         {/* Subtle ambient light effect */}
         <div className="absolute inset-0 bg-gradient-radial from-purple-900/10 via-transparent to-transparent pointer-events-none"></div>
 
@@ -466,7 +765,7 @@ export default function GamePage(): JSX.Element {
               0 0 100px rgba(139, 92, 246, 0.15),
               0 0 0 1px rgba(255, 255, 255, 0.05) inset
             `,
-            transform: 'scale(1.5)',
+            transform: `scale(${canvasScale})`,
             imageRendering: 'pixelated'
           }}
         />
@@ -503,6 +802,19 @@ export default function GamePage(): JSX.Element {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Mobile Touch Controls - Only visible on mobile/tablet (<1024px) */}
+      {showTouchControls && (
+        <TouchControls
+          onLeftStart={handleLeftStart}
+          onLeftEnd={handleLeftEnd}
+          onRightStart={handleRightStart}
+          onRightEnd={handleRightEnd}
+          onJump={handleJump}
+          onActionStart={handleActionStart}
+          onActionEnd={handleActionEnd}
+        />
       )}
     </div>
   );

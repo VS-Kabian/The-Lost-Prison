@@ -113,6 +113,14 @@ export default function EditorPage(): JSX.Element {
     }
   }, [gameState, textures, mode, editorState.gridHeight, editorState.gridWidth]);
 
+  // Cleanup: Clear message timeout on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (messageTimeoutRef.current) {
+        window.clearTimeout(messageTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const showMessage = (text: string) => {
     setMessage({ text, visible: true });
