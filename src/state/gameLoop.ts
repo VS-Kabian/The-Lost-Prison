@@ -7,6 +7,7 @@ import {
   updatePlacedBombs
 } from "./gameState";
 import { TileType, TILE_SIZE, type GameState, type PlayerState } from "../types";
+import { logWarning, logInfo } from "../utils/logger";
 
 export interface GameUpdateEvents {
   levelComplete: boolean;
@@ -416,7 +417,7 @@ function updateFireTraps(state: GameState, player: PlayerState): boolean {
 
 function handleGoal(state: GameState, player: PlayerState): boolean {
   if (!state.goalPos) {
-    console.log("No goal position set!");
+    logWarning("No goal position set!");
     return false;
   }
 
@@ -430,11 +431,12 @@ function handleGoal(state: GameState, player: PlayerState): boolean {
   const collision = checkCollision(player, goalBox);
 
   if (collision) {
-    console.log("🎯 GOAL REACHED!", {
+    logInfo("Goal reached", {
       playerPos: { x: player.x, y: player.y },
       goalPos: state.goalPos,
-      goalBox,
-      playerBox: { x: player.x, y: player.y, width: player.width, height: player.height }
+      level: state.level,
+      time: state.time,
+      deaths: state.deaths
     });
   }
 
@@ -490,7 +492,13 @@ export function updateGameFrame(state: GameState, keys: KeyMap): {
 
   const itemCollected = collectItems(nextState, player);
 
-  const { bullets, monsters } = updateBullets(nextState.bullets, nextState.grid, nextState.monsters);
+  const { bullets, monsters } = updateBullets(
+    nextState.bullets,
+    nextState.grid,
+    nextState.monsters,
+    nextState.doors,
+    nextState.firetraps
+  );
   nextState.bullets = bullets;
   nextState.monsters = monsters;
 

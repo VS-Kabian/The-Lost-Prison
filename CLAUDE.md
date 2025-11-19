@@ -74,6 +74,7 @@ src/
 │   ├── useTextures.ts       # Image asset loading hook
 │   └── useAudio.ts          # Audio system hook
 └── utils/
+    ├── logger.ts            # Secure logging utility (dev-only output)
     └── storage.ts           # localStorage operations (legacy)
 
 public/
@@ -308,6 +309,12 @@ resolveCollision(player, box): void // Pushes player out, sets onGround
 Player checks a **4×4 grid area** around position each frame in `handleTileCollisions()` ([gameLoop.ts](src/state/gameLoop.ts:33-118)).
 
 Invisible boundary walls prevent falling off grid edges.
+
+**Bullet Collision** ([gameState.ts](src/state/gameState.ts:250)):
+- Bullets stop when hitting solid blocks: Wall (1), Stone (2), Platform (10)
+- Bullets stop at closed doors and fire trap blocks
+- `updateBullets()` requires `doors` and `firetraps` parameters for collision checks
+- Bullets that hit monsters or solid objects are removed from the bullets array
 
 ### Monster AI
 
@@ -743,6 +750,34 @@ If camera not following player correctly or showing wrong area:
    - `imageRendering: 'pixelated'` for retro look
    - Container uses `overflow-hidden` to prevent scrolling
 
+## Security & Logging
+
+### Secure Logger Utility
+
+**CRITICAL**: Never use `console.log`, `console.warn`, or `console.error` directly in production code. Always use the secure logger utility ([utils/logger.ts](src/utils/logger.ts)).
+
+**Logger Functions**:
+```typescript
+import { logInfo, logWarning, logError } from "../utils/logger";
+
+logInfo("message", optionalData);     // Development-only info logging
+logWarning("message", optionalData);  // Development-only warnings
+logError("message", errorObject);     // Development-only error logging
+```
+
+**Why This Matters**:
+- Logger only outputs in **development mode** (`import.meta.env.DEV`)
+- **Silent in production** - prevents information disclosure and performance overhead
+- Protects against exposing internal state, debug data, or error details to users
+- Ready for integration with monitoring services (Sentry, LogRocket)
+
+**Security Best Practices**:
+- ✅ `.env` file in `.gitignore` (never commit credentials)
+- ✅ Supabase RLS enforced on all tables
+- ✅ Admin role cannot be self-assigned (database-only operation)
+- ✅ TypeScript strict mode prevents type-related vulnerabilities
+- ✅ No privilege escalation paths in client code
+
 ## Key Architectural Patterns
 
 - **React Router** for route-based navigation
@@ -757,3 +792,4 @@ If camera not following player correctly or showing wrong area:
 - **Grid-to-pixel coordinate conversion** for editor/game separation
 - **Background rendering inside canvas** for proper layout
 - **Fixed viewport with no scrolling** for game pages
+- **Secure logging** with development-only output

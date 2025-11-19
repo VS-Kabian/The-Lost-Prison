@@ -218,7 +218,13 @@ export function resolveCollision(player: PlayerState, box: {
   }
 }
 
-export function updateBullets(bullets: BulletState[], grid: number[][], monsters: MonsterState[]): {
+export function updateBullets(
+  bullets: BulletState[],
+  grid: number[][],
+  monsters: MonsterState[],
+  doors: DoorState[],
+  firetraps: import("../types").FireTrapState[]
+): {
   bullets: BulletState[];
   monsters: MonsterState[];
 } {
@@ -242,14 +248,65 @@ export function updateBullets(bullets: BulletState[], grid: number[][], monsters
 
     const gridX = Math.floor(nextBullet.x / TILE_SIZE);
     const gridY = Math.floor(nextBullet.y / TILE_SIZE);
+
+    // Check if bullet is out of bounds or hits a solid block
     const outOfBounds =
       gridY < 0 ||
       gridY >= grid.length ||
       gridX < 0 ||
-      gridX >= grid[0].length ||
-      grid[gridY][gridX] === TileType.Wall;
+      gridX >= grid[0].length;
 
-    if (!outOfBounds) {
+    if (outOfBounds) {
+      return; // Bullet is off the map
+    }
+
+    // Check if bullet hits any solid tile (Wall, Stone, or Platform)
+    const tile = grid[gridY][gridX];
+    const hitSolidBlock =
+      tile === TileType.Wall ||
+      tile === TileType.Stone ||
+      tile === TileType.Platform;
+
+    if (hitSolidBlock) {
+      return; // Bullet hit a solid block
+    }
+
+    // Check if bullet hits a closed door
+    let hitClosedDoor = false;
+    doors.forEach((door) => {
+      if (!door.open) {
+        const doorBox = {
+          x: door.x * TILE_SIZE,
+          y: door.y * TILE_SIZE,
+          width: TILE_SIZE,
+          height: TILE_SIZE
+        };
+        if (checkCollision(nextBullet, doorBox)) {
+          hitClosedDoor = true;
+        }
+      }
+    });
+
+    if (hitClosedDoor) {
+      return; // Bullet hit a closed door
+    }
+
+    // Check if bullet hits a fire trap block
+    let hitFireTrap = false;
+    firetraps.forEach((trap) => {
+      const trapBox = {
+        x: trap.x * TILE_SIZE,
+        y: trap.y * TILE_SIZE,
+        width: TILE_SIZE,
+        height: TILE_SIZE
+      };
+      if (checkCollision(nextBullet, trapBox)) {
+        hitFireTrap = true;
+      }
+    });
+
+    // Only keep bullet if it didn't hit anything
+    if (!hitFireTrap) {
       nextBullets.push(nextBullet);
     }
   });

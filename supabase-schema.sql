@@ -32,7 +32,7 @@ CREATE TABLE levels (
   name TEXT NOT NULL,
   level_number INTEGER NOT NULL,
   map_data JSONB NOT NULL,
-  background TEXT NOT NULL DEFAULT 'none' CHECK (background IN ('none', 'bg1', 'bg2')),
+  background TEXT NOT NULL DEFAULT 'none' CHECK (background IN ('none', 'bg1', 'bg2', 'bg3', 'bg4', 'bg5', 'bg6')),
   is_published BOOLEAN NOT NULL DEFAULT false,
   created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -49,7 +49,7 @@ CREATE INDEX idx_levels_level_number ON levels(level_number);
 
 COMMENT ON TABLE levels IS 'Game levels with grid data, objects, and background settings';
 COMMENT ON COLUMN levels.map_data IS 'Complete LevelData object stored as JSONB';
-COMMENT ON COLUMN levels.background IS 'Background image selection: none, bg1 (Forest), or bg2 (Sky Plains)';
+COMMENT ON COLUMN levels.background IS 'Background image selection: none, bg1 (Forest), bg2 (Sky Plains), bg3, bg4, bg5, or bg6';
 COMMENT ON COLUMN levels.is_published IS 'Only published levels are visible to players';
 
 -- ============================================

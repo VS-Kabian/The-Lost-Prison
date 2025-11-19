@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { logInfo, logWarning, logError } from "../utils/logger";
 
 type AudioKey =
   | "bgMusic"
@@ -89,7 +90,7 @@ export function useAudio(): {
           sound.currentTime = 0;
           return true;
         } catch (err) {
-          console.warn(`Failed to unlock ${key}`);
+          logWarning(`Failed to unlock ${key}`);
           return false;
         }
       });
@@ -98,9 +99,9 @@ export function useAudio(): {
 
       enabledRef.current = true;
       setEnabled(true);
-      console.log("🎵 Audio ready");
+      logInfo("Audio ready");
     } catch (err) {
-      console.error("Audio initialization failed:", err);
+      logError("Audio initialization failed", err);
     }
   };
 

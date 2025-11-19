@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { logWarning } from "../utils/logger";
 
 type TextureKey =
   | "wall"
@@ -84,9 +85,9 @@ export function useTextures(): {
           setLoaded(true);
         }
       };
-      image.onerror = (event) => {
+      image.onerror = () => {
         if (cancelled) return;
-        console.warn(`Failed to load texture ${key}`, event);
+        logWarning(`Failed to load texture ${key}`);
         loadedCount += 1;
         if (loadedCount === keys.length) {
           setTextures(images);
