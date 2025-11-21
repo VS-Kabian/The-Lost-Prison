@@ -33,7 +33,10 @@ export const TOOL_OPTIONS = [
       { id: "wall", name: "Wall", icon: "⬛" },
       { id: "stone", name: "Stone", icon: "🟦" },
       { id: "lava", name: "Lava", icon: "🟥" },
-      { id: "platform", name: "Platform", icon: "🟫" }
+      { id: "platform", name: "Platform", icon: "🟫" },
+      { id: "grassstone", name: "Grass+Stone", icon: "🟩" },
+      { id: "grass", name: "Grass", icon: "🌱" },
+      { id: "soil", name: "Soil", icon: "🟤" }
     ]
   },
   {

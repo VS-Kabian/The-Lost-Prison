@@ -84,6 +84,30 @@ export function drawEditorCanvas(
             ctx.fillRect(tileX, tileY, TILE_SIZE, TILE_SIZE);
           }
           break;
+        case TileType.GrassStone:
+          if (textures.grassstone?.complete) {
+            ctx.drawImage(textures.grassstone, tileX, tileY, TILE_SIZE, TILE_SIZE);
+          } else {
+            ctx.fillStyle = "#228B22";
+            ctx.fillRect(tileX, tileY, TILE_SIZE, TILE_SIZE);
+          }
+          break;
+        case TileType.Grass:
+          if (textures.grass?.complete) {
+            ctx.drawImage(textures.grass, tileX, tileY, TILE_SIZE, TILE_SIZE);
+          } else {
+            ctx.fillStyle = "#7CFC00";
+            ctx.fillRect(tileX, tileY, TILE_SIZE, TILE_SIZE);
+          }
+          break;
+        case TileType.Soil:
+          if (textures.soil?.complete) {
+            ctx.drawImage(textures.soil, tileX, tileY, TILE_SIZE, TILE_SIZE);
+          } else {
+            ctx.fillStyle = "#8B4513";
+            ctx.fillRect(tileX, tileY, TILE_SIZE, TILE_SIZE);
+          }
+          break;
         default:
           break;
       }

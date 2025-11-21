@@ -147,6 +147,12 @@ export function toolToTile(tool: Tool): number | null {
       return 3;
     case "platform":
       return 10;
+    case "grassstone":
+      return 11;
+    case "grass":
+      return 12;
+    case "soil":
+      return 13;
     default:
       return null;
   }
@@ -196,6 +202,9 @@ export function applyToolAtPosition(state: EditorState, x: number, y: number): E
     case "stone":
     case "lava":
     case "platform":
+    case "grassstone":
+    case "grass":
+    case "soil":
       clearPosition();
       if (tileValue !== null) {
         newGrid[y][x] = tileValue;

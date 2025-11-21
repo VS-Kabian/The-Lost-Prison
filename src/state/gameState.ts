@@ -260,12 +260,15 @@ export function updateBullets(
       return; // Bullet is off the map
     }
 
-    // Check if bullet hits any solid tile (Wall, Stone, or Platform)
+    // Check if bullet hits any solid tile (Wall, Stone, Platform, or decorative blocks)
     const tile = grid[gridY][gridX];
     const hitSolidBlock =
       tile === TileType.Wall ||
       tile === TileType.Stone ||
-      tile === TileType.Platform;
+      tile === TileType.Platform ||
+      tile === TileType.GrassStone ||
+      tile === TileType.Grass ||
+      tile === TileType.Soil;
 
     if (hitSolidBlock) {
       return; // Bullet hit a solid block

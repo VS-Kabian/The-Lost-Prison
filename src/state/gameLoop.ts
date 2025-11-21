@@ -55,7 +55,10 @@ function handleTileCollisions(state: GameState, player: PlayerState): void {
           tile === TileType.Wall ||
           tile === TileType.Stone ||
           tile === TileType.Lava ||
-          tile === TileType.Platform
+          tile === TileType.Platform ||
+          tile === TileType.GrassStone ||
+          tile === TileType.Grass ||
+          tile === TileType.Soil
         ) {
           const box = {
             x: checkX * TILE_SIZE,
@@ -165,7 +168,10 @@ function updateMonsters(state: GameState, player: PlayerState): boolean {
           if (
             tile === TileType.Wall ||
             tile === TileType.Stone ||
-            tile === TileType.Platform
+            tile === TileType.Platform ||
+            tile === TileType.GrassStone ||
+            tile === TileType.Grass ||
+            tile === TileType.Soil
           ) {
             const tileBox = {
               x: checkX * TILE_SIZE,

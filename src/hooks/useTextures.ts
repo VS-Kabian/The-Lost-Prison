@@ -6,6 +6,9 @@ type TextureKey =
   | "stone"
   | "lava"
   | "platform"
+  | "grassstone"
+  | "grass"
+  | "soil"
   | "key"
   | "bomb"
   | "lock"
@@ -32,6 +35,9 @@ const textureSources: Record<TextureKey, string> = {
   stone: "/Images/Stone.webp",
   lava: "/Images/Lava.png",
   platform: "/Images/Wood Platform.webp",
+  grassstone: "/Images/Gras+Stone Block.jpg",
+  grass: "/Images/Grass-Block.webp",
+  soil: "/Images/Soil.webp",
   key: "/Images/Key.png",
   bomb: "/Images/Bomb-Lev-1.webp",
   lock: "/Images/Lock-Normal.png",

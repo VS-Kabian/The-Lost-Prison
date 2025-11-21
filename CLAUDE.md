@@ -10,8 +10,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **React 18.3.1** - UI framework
 - **TypeScript 5.6.2** - Type-safe JavaScript
-- **Vite 5.1.6** - Build tool and dev server
-- **Tailwind CSS 3.4.13** - Utility-first CSS framework
+- **Vite 5.4.21** - Build tool and dev server
+- **Tailwind CSS 3.4.18** - Utility-first CSS framework
 - **HTML5 Canvas** - Game rendering
 - **Supabase 2.81.0** - Backend (auth, database, RLS)
 - **React Router 7.9.5** - Client-side routing
@@ -74,7 +74,9 @@ src/
 │   └── shared.ts            # Shared rendering utilities
 ├── hooks/
 │   ├── useTextures.ts       # Image asset loading hook
-│   └── useAudio.ts          # Audio system hook
+│   ├── useAudio.ts          # Audio system hook
+│   ├── useDebounce.ts       # Function debouncing hook (rate limiting)
+│   └── useMobileDetection.ts # Mobile device and orientation detection
 └── utils/
     ├── logger.ts            # Secure logging utility (dev-only output)
     ├── sanitize.ts          # Input sanitization (XSS prevention)
@@ -347,6 +349,45 @@ Patrol behavior ([gameLoop.ts](src/state/gameLoop.ts:120-182)):
 2. **Placed** (B key) → 90-frame countdown at player grid position
 3. **Explosion** → Destroys only Stone blocks within 2-tile blast radius
 
+### Hearts & Coins Collectible System
+
+**Heart Collectibles** ([types.ts](src/types.ts:69), [gameLoop.ts](src/state/gameLoop.ts:310-314)):
+- Placed in editor at grid positions like other collectibles
+- Restores **1 health point** when collected
+- Cannot exceed `maxHealth` (default: 6 HP)
+- Plays pickup sound effect on collection
+- Visual: Heart sprite or red circle fallback
+
+**Coin Collectibles** ([types.ts](src/types.ts:69), [gameLoop.ts](src/state/gameLoop.ts:310-314)):
+- Placed in editor at grid positions
+- Currently collected but **no gameplay effect**
+- Reserved for future score/currency system
+- Plays pickup sound effect on collection
+- Visual: Yellow coin sprite or circle fallback
+
+**Implementation**:
+```typescript
+// In gameLoop.ts - handleCollectibles()
+if (item.type === "heart") {
+  state.health = Math.min(state.maxHealth, state.health + 1);
+  playSound("itemPick");
+} else if (item.type === "coin") {
+  // Reserved for future score tracking
+  playSound("itemPick");
+}
+```
+
+**Level Data Structure**:
+```typescript
+interface LevelData {
+  // ... other fields
+  hearts?: GridPosition[];  // Optional heart positions
+  coins?: GridPosition[];   // Optional coin positions
+}
+```
+
+**IMPORTANT**: Hearts are fully functional. Coins are implemented but currently have no gameplay effect - they're reserved for a future score/currency feature.
+
 ### Door/Lock/Key System
 
 **Key Mechanics**:
@@ -392,6 +433,91 @@ export function tryOpenDoor(state: GameState): boolean
 - **Lava**: 1 HP/second (60-frame cooldown)
 - **Monster**: Instant death, level restart
 - **Fire Traps**: 1 HP on contact (60-frame invincibility)
+
+### Progress Tracking & Leaderboard System
+
+**Database Table**: `progress` (Supabase)
+
+The game includes a comprehensive progress tracking system for recording player performance and displaying leaderboards.
+
+**Progress Service** ([services/progressService.ts](src/services/progressService.ts)):
+
+**Player Progress Functions**:
+```typescript
+// Fetch progress for specific level
+getPlayerProgress(playerId: string, levelId: string): Promise<Progress | null>
+
+// Fetch all progress for a player
+getAllPlayerProgress(playerId: string): Promise<Progress[]>
+
+// Save or update progress (only updates if new time is better)
+upsertProgress(playerId: string, levelId: string, data: ProgressData): Promise<void>
+```
+
+**Leaderboard Functions**:
+```typescript
+// Level-specific leaderboard (sorted by best_time ascending)
+getLeaderboard(levelId: string, limit?: number): Promise<LeaderboardEntry[]>
+
+// Global leaderboard (sorted by total score descending)
+getGlobalLeaderboard(limit?: number): Promise<GlobalLeaderboardEntry[]>
+```
+
+**Statistics Functions**:
+```typescript
+// Get player completion statistics
+getPlayerStats(playerId: string): Promise<PlayerStats>
+// Returns: { totalLevelsCompleted, totalDeaths, averageTime, bestScore }
+
+// Check if player completed a level
+hasCompletedLevel(playerId: string, levelId: string): Promise<boolean>
+
+// Get player's best time for a level
+getBestTime(playerId: string, levelId: string): Promise<number | null>
+```
+
+**Progress Data Structure**:
+```typescript
+interface ProgressData {
+  completed: boolean;    // Whether level was completed
+  time: number;          // Completion time in seconds
+  deaths: number;        // Deaths in this attempt
+  score: number;         // Score for this level
+}
+
+interface LeaderboardEntry {
+  player_id: string;
+  username: string;      // Joined from profiles table
+  best_time: number;
+  deaths: number;
+  completed_at: string;
+}
+```
+
+**Progress Table Schema** (Supabase):
+```sql
+CREATE TABLE progress (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  player_id UUID REFERENCES profiles(user_id) ON DELETE CASCADE,
+  level_id UUID REFERENCES levels(id) ON DELETE CASCADE,
+  completed BOOLEAN DEFAULT false,
+  best_time INTEGER,           -- Best completion time in seconds
+  total_deaths INTEGER DEFAULT 0,
+  score INTEGER DEFAULT 0,
+  completed_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(player_id, level_id)
+);
+```
+
+**Key Features**:
+- **Smart Updates**: `upsertProgress()` only updates if new time is better than existing
+- **Death Accumulation**: Tracks total deaths across all attempts
+- **Username Integration**: Leaderboards join with profiles for display names
+- **Row-Level Security**: Players can only update their own progress
+
+**IMPORTANT**: Progress tracking is fully implemented in the service layer but may not be fully integrated into the GamePage UI. This system is ready for future leaderboard displays and statistics dashboards.
 
 ### Camera System
 
@@ -482,6 +608,11 @@ Loaded via [useTextures.ts](src/hooks/useTextures.ts) hook:
 - `public/Images/Player/Monster-Open.png` - Monster sprite (mouth open)
 - `public/Images/Player/Monster-Close.png` - Monster sprite (mouth closed)
 
+**Touch Control Assets** (Mobile):
+- `public/Images/Control/Left Arrow.png` - Move left button
+- `public/Images/Control/Right Arrow.png` - Move right button
+- `public/Images/Control/Jump Button.png` - Jump button
+
 Emoji fallbacks (⬛🟦🟥🟫🔥👾) used if textures fail to load.
 
 ### Audio System
@@ -515,6 +646,60 @@ setMuted(muted: boolean): void      // Mute/unmute all audio
 
 **IMPORTANT**: Always check `enabled` state before playing sounds. The `playSound()` and `playBackgroundMusic()` functions silently fail if audio is not yet enabled.
 
+### Custom Hooks
+
+**useDebounce** ([hooks/useDebounce.ts](src/hooks/useDebounce.ts)):
+- Debounces function calls to prevent rapid successive execution
+- Prevents performance issues and rate limiting violations
+- Default delay: 1000ms (customizable)
+- Returns debounced version of the callback function
+
+**Usage Example**:
+```typescript
+const debouncedSave = useDebounce(handleSave, 2000);
+// handleSave will only execute 2 seconds after last call
+```
+
+**Used in**:
+- EditorPage: Rate-limits save operations to prevent spam
+- Prevents accidental multiple saves from rapid clicking
+
+**useMobileDetection** ([hooks/useMobileDetection.ts](src/hooks/useMobileDetection.ts)):
+- Detects mobile devices and screen orientation
+- Returns: `{ isMobile, isLandscape, isMobileLandscape }`
+- Updates automatically on resize and orientation change
+
+**Detection Criteria**:
+- User agent matching (Android, iOS, iPhone, iPad, etc.)
+- Screen size: ≤900px width considered mobile
+- Touch support via `maxTouchPoints` check
+- Orientation API when available
+
+**Usage Example**:
+```typescript
+const { isMobile, isLandscape, isMobileLandscape } = useMobileDetection();
+
+// Show touch controls only in mobile landscape
+{isMobileLandscape && <TouchControls />}
+```
+
+**Used in**:
+- GamePage: Controls visibility of touch controls
+- Responsive layout adjustments
+- Mobile-specific optimizations
+
+**useTextures** ([hooks/useTextures.ts](src/hooks/useTextures.ts)):
+- [See "Image Assets" section for details]
+- Loads all game textures and background images
+- Returns `loaded` state and `textures` object
+- Handles loading errors with fallbacks
+
+**useAudio** ([hooks/useAudio.ts](src/hooks/useAudio.ts)):
+- [See "Audio System" section for details]
+- Manages all game audio and background music
+- Handles browser autoplay restrictions
+- Provides sound playback functions
+
 ### Visual Effects
 
 **Player Shake Effect** ([types.ts](src/types.ts), [gameLoop.ts](src/state/gameLoop.ts)):
@@ -538,6 +723,30 @@ const shakeOffsetX = player.shaking ? (Math.random() - 0.5) * 4 : 0;
 const shakeOffsetY = player.shaking ? (Math.random() - 0.5) * 4 : 0;
 ctx.drawImage(playerImage, player.x + shakeOffsetX, player.y + shakeOffsetY, ...);
 ```
+
+**Animation Frame System** ([gameState.ts](src/state/gameState.ts), [gameLoop.ts](src/state/gameLoop.ts)):
+- `GameState` includes `animationFrame: number` for synchronized animations
+- Increments every frame: `state.animationFrame = (state.animationFrame + 1) % 1000`
+- Used for multiple animation effects throughout the game
+
+**Applications**:
+```typescript
+// Fire trap warning glow (pulsing orange effect)
+const glowIntensity = Math.sin(state.animationFrame * 0.2) * 0.3 + 0.7;
+
+// Fire animation frame cycling (4 frames, 5 game frames per animation frame)
+const fireFrame = Math.floor((state.animationFrame + index * 5) / 5) % 4;
+const fireImage = textures[`fire${fireFrame + 1}` as TextureKey];
+
+// Player sprite mouth animation
+const playerFrame = Math.floor(state.animationFrame / 10) % 2; // Alternates every 10 frames
+```
+
+**Why Global Frame Counter**:
+- Ensures all animations stay synchronized
+- Prevents drift between different animated elements
+- Simplifies animation timing calculations
+- Modulo 1000 prevents overflow while maintaining precision
 
 ### Editor Zoom Controls
 
@@ -611,6 +820,66 @@ canvas.style.transform = `scale(${fitScale})`;
 - `.bg-gradient-radial`: Custom Tailwind utility for radial gradients
 
 ## Common Tasks
+
+### Exporting and Importing Levels
+
+**Export Level** ([utils/storage.ts](src/utils/storage.ts:54-62)):
+
+Admins can export level data as JSON files for backup, version control, or sharing:
+
+```typescript
+export function exportLevel(level: number, data: LevelData): void
+```
+
+**Usage** (in EditorPage):
+1. Click "Export" button in editor interface
+2. Browser downloads `level_X.json` file
+3. File contains complete level data (grid, objects, background, settings)
+
+**Export File Format**:
+```json
+{
+  "levelName": "My Level",
+  "grid": [[0,1,2], ...],
+  "playerStart": {"x": 1, "y": 1},
+  "goal": {"x": 20, "y": 10},
+  "monsters": [...],
+  "weapons": [...],
+  "bombs": [...],
+  "keys": [...],
+  "doors": [...],
+  "firetraps": [...],
+  "hearts": [...],
+  "coins": [...],
+  "background": "bg1"
+}
+```
+
+**Use Cases**:
+- **Backup**: Keep local copies of level designs
+- **Version Control**: Track level changes over time
+- **Sharing**: Send levels to other developers
+- **Testing**: Export for external testing or review
+- **Migration**: Move levels between environments
+
+**Implementation**:
+```typescript
+// Create downloadable JSON file
+const dataStr = JSON.stringify(data, null, 2);
+const dataBlob = new Blob([dataStr], { type: 'application/json' });
+const url = URL.createObjectURL(dataBlob);
+
+// Trigger download
+const link = document.createElement('a');
+link.href = url;
+link.download = `level_${level}.json`;
+link.click();
+
+// Cleanup
+URL.revokeObjectURL(url);
+```
+
+**IMPORTANT**: Import functionality is not yet implemented. Exported files can be used for reference or manually imported via database operations.
 
 ### Creating Admin Account
 
@@ -794,11 +1063,42 @@ logError("message", errorObject);     // Development-only error logging
 - ✅ Admin role cannot be self-assigned (database-only operation)
 - ✅ TypeScript strict mode prevents type-related vulnerabilities
 - ✅ No privilege escalation paths in client code
-- ✅ Input validation and sanitization (see [SECURITY.md](SECURITY.md))
+- ✅ Input validation and sanitization (processLevelName, sanitizeLevelName)
 - ✅ Error boundaries prevent white screen crashes
 - ✅ Memory leak prevention with proper cleanup
 
 ### Security Patterns
+
+**Rate Limiting on Save Operations** ([EditorPage.tsx](src/pages/EditorPage.tsx:151-157)):
+
+To prevent save spam and potential DoS attacks, the editor enforces a **2-second cooldown** between saves:
+
+```typescript
+const SAVE_COOLDOWN = 2000; // 2 seconds in milliseconds
+const now = Date.now();
+
+if (now - lastSaveTime < SAVE_COOLDOWN) {
+  showMessage("⏱️ Please wait before saving again");
+  return;
+}
+
+// Proceed with save...
+setLastSaveTime(now);
+```
+
+**Implementation Details**:
+- Tracks last save timestamp with `useState<number>`
+- Enforces minimum 2-second interval between saves
+- Shows user-friendly warning message on cooldown
+- Timestamp updated **only after successful save**
+- Works in conjunction with `useDebounce` hook for additional protection
+
+**Why This Matters**:
+- Prevents accidental rapid clicking
+- Reduces database write load
+- Protects against potential abuse/spam
+- Improves overall system stability
+- Prevents rate limit violations on Supabase
 
 **Memory Leak Prevention**:
 All `setTimeout` calls must use refs with cleanup in `useEffect`:
@@ -848,23 +1148,85 @@ All user-facing React trees wrapped in ErrorBoundary ([ErrorBoundary.tsx](src/co
 - Null checks before numeric operations
 - Proper TypeScript interfaces for all API responses
 
-See [SECURITY.md](SECURITY.md) for comprehensive security documentation including rate limiting setup.
+**Additional Security Considerations**:
+- All security patterns documented in this file under "Security & Logging" section
+- Rate limiting on save operations documented above
+- Supabase RLS policies enforced at database level
+- Input sanitization for all user-provided data
+- Error boundaries catch and log rendering errors securely
 
 ## Mobile Optimization
 
 **Touch Controls** ([TouchControls.tsx](src/components/TouchControls.tsx)):
 - Landscape mode only (auto-detects with `useMobileDetection`)
-- Left side: Left/Right movement arrows
-- Right side: Jump button (up) + Action button (shoot/door/bomb)
-- Action button: Short press = shoot, Long press (>300ms) = door/bomb
+- Left side: Left/Right movement arrows (positioned bottom-left)
+- Right side: Jump button (up) + Action button (shoot/door/bomb) (positioned bottom-right)
 - Positioned at bottom corners to avoid covering gameplay
 - Uses `env(safe-area-inset-*)` for notch/safe area handling
+
+**Action Button Press Duration** ([GamePage.tsx](src/pages/GamePage.tsx)):
+- **Short Press** (<300ms): Shoot weapon (if has weapon and ammo > 0)
+- **Long Press** (≥300ms): Open door (if near door and has key) OR place bomb (if bomb count > 0)
+- Press duration tracked with timestamp on touch start/end
+- Threshold: `ACTION_PRESS_THRESHOLD = 300` milliseconds
+
+**Implementation**:
+```typescript
+const pressDuration = Date.now() - actionPressStart;
+
+if (pressDuration < ACTION_PRESS_THRESHOLD) {
+  // Short press - shoot
+  if (gameStateRef.current.player.hasWeapon && gameStateRef.current.ammo > 0) {
+    // Fire bullet
+  }
+} else {
+  // Long press - door or bomb
+  if (gameStateRef.current.keys > 0) {
+    tryOpenDoor(gameStateRef.current); // Try opening nearby door first
+  } else if (gameStateRef.current.bombCount > 0) {
+    // Place bomb
+  }
+}
+```
+
+**Mobile Canvas Scaling** ([GamePage.tsx](src/pages/GamePage.tsx:156-198)):
+
+The mobile canvas scaling is more sophisticated than standard responsive design:
+
+```typescript
+// Dynamic calculation based on viewport
+const availableHeight = window.innerHeight - 110; // Account for HUD and controls
+const availableWidth = window.innerWidth;
+
+// Calculate scale factors
+const scaleX = availableWidth / CANVAS_WIDTH;
+const scaleY = availableHeight / CANVAS_HEIGHT;
+
+// Use minimum scale to fit both dimensions
+let scale = Math.min(scaleX, scaleY);
+
+// Mobile multiplier for better visibility (110% larger)
+if (isMobile) {
+  scale *= 1.1;
+}
+
+// Enforce minimum 1.5x scale for retro pixel art aesthetic
+const finalScale = Math.max(1.5, scale);
+```
+
+**Key Features**:
+- **Dynamic Viewport Calculation**: Responds to window resize and DevTools viewport changes
+- **110% Mobile Multiplier**: Makes game elements larger on mobile for easier touch interaction
+- **Minimum 1.5x Scale**: Enforces retro pixel art aesthetic even on large screens
+- **HUD Height Consideration**: Subtracts 110px for stats bar and touch controls
+- **Maintains Aspect Ratio**: Uses minimum of X/Y scale to prevent distortion
+- **Real-time Updates**: Recalculates on orientation change and resize events
 
 **Mobile UI Patterns**:
 - Horizontal 3-dot menu (⋯) styled like level badge
 - Center-aligned close button in menu
 - Full viewport usage with `overflow-hidden`
-- Canvas maximized to `calc(100vh - 115px)` on mobile
+- Canvas height: `calc(100vh - 115px)` on mobile (accounting for HUD)
 - Touch-friendly 44px minimum button size
 - Glass morphism HUD with `backdrop-blur`
 

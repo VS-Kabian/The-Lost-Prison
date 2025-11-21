@@ -15,7 +15,10 @@ export enum TileType {
   Wall = 1,
   Stone = 2,
   Lava = 3,
-  Platform = 10
+  Platform = 10,
+  GrassStone = 11,  // Decorative: Grass + Stone block
+  Grass = 12,       // Decorative: Grass only block
+  Soil = 13         // Decorative: Soil block
 }
 
 export type BackgroundKey = "none" | "bg1" | "bg2" | "bg3" | "bg4" | "bg5" | "bg6";
@@ -26,6 +29,9 @@ export type Tool =
   | "stone"
   | "lava"
   | "platform"
+  | "grassstone"
+  | "grass"
+  | "soil"
   | "player"
   | "goal"
   | "key"
