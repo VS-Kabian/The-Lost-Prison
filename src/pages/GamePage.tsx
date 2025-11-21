@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTextures } from "../hooks/useTextures";
 import { useAudio } from "../hooks/useAudio";
 import { useMobileDetection } from "../hooks/useMobileDetection";
-import { drawGameCanvas } from "../canvas/gameCanvas";
+import { drawStaticLayer, drawDynamicLayer, calculateCameraPosition } from "../canvas/layeredGameCanvas";
 import {
   buildGameStateFromLevel,
   createInitialGameState,
@@ -32,17 +32,21 @@ export default function GamePage(): JSX.Element {
   const [showTouchControls, setShowTouchControls] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [actionPressStart, setActionPressStart] = useState<number | null>(null);
+  const [staticLayerHash, setStaticLayerHash] = useState<string>("");
   const { textures } = useTextures();
   const { playSound, playBackgroundMusic, stopBackgroundMusic, setMuted, enableAudio, enabled, loaded } = useAudio();
   const { isMobileLandscape } = useMobileDetection();
 
-  const gameCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const staticCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const dynamicCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const keysRef = useRef<KeyMap>({});
   const gameStateRef = useRef<GameState>(gameState);
   const levelCompleteRef = useRef<boolean>(false);
   const playerDeadRef = useRef<boolean>(false);
   const playerDeathTimeoutRef = useRef<number>();
   const levelCompleteTimeoutRef = useRef<number>();
+  const lastCameraXRef = useRef<number>(0);
+  const lastCameraYRef = useRef<number>(0);
 
   useEffect(() => {
     gameStateRef.current = gameState;
@@ -113,6 +117,8 @@ export default function GamePage(): JSX.Element {
     setGameState(newGameState);
     levelCompleteRef.current = false;
     playerDeadRef.current = false;
+    // Force static layer re-render by updating hash
+    setStaticLayerHash(level.id + "_" + Date.now());
     // Start background music if audio is already enabled
     if (enabled) {
       playBackgroundMusic();
@@ -197,26 +203,51 @@ export default function GamePage(): JSX.Element {
     return () => window.removeEventListener("resize", calculateCanvasScale);
   }, [isMobileLandscape]);
 
+  // Render static layer once when level loads or terrain changes
   useEffect(() => {
     if (!currentLevel) return;
 
-    const canvas = gameCanvasRef.current;
-    if (!canvas) return;
+    const staticCanvas = staticCanvasRef.current;
+    if (!staticCanvas) return;
 
-    // Fixed viewport size: 11 tiles wide × 7 tiles tall (3 above + player + 3 below)
     const VIEWPORT_WIDTH = 12;
     const VIEWPORT_HEIGHT = 6;
-    canvas.width = VIEWPORT_WIDTH * TILE_SIZE;
-    canvas.height = VIEWPORT_HEIGHT * TILE_SIZE;
+    staticCanvas.width = VIEWPORT_WIDTH * TILE_SIZE;
+    staticCanvas.height = VIEWPORT_HEIGHT * TILE_SIZE;
 
-    const ctx = canvas.getContext("2d");
+    const ctx = staticCanvas.getContext("2d");
     if (!ctx) return;
 
-    drawGameCanvas(ctx, gameState, textures);
-  }, [gameState, textures, currentLevel]);
+    const { cameraX, cameraY } = calculateCameraPosition(
+      gameState,
+      staticCanvas.width,
+      staticCanvas.height
+    );
+
+    // Store camera position for comparison
+    lastCameraXRef.current = cameraX;
+    lastCameraYRef.current = cameraY;
+
+    drawStaticLayer(ctx, gameState, textures, cameraX, cameraY);
+  }, [staticLayerHash, textures, currentLevel]);
+
+  // Initialize dynamic canvas dimensions
+  useEffect(() => {
+    if (!currentLevel) return;
+
+    const dynamicCanvas = dynamicCanvasRef.current;
+    if (!dynamicCanvas) return;
+
+    const VIEWPORT_WIDTH = 12;
+    const VIEWPORT_HEIGHT = 6;
+    dynamicCanvas.width = VIEWPORT_WIDTH * TILE_SIZE;
+    dynamicCanvas.height = VIEWPORT_HEIGHT * TILE_SIZE;
+  }, [currentLevel]);
 
 
-  // Game loop
+  // Game loop - LAYERED RENDERING OPTIMIZATION
+  // Static layer (background + terrain) only re-renders when camera moves >5px or terrain changes
+  // Dynamic layer (player, monsters, bullets) renders every frame
   useEffect(() => {
     if (!currentLevel) return;
 
@@ -230,6 +261,8 @@ export default function GamePage(): JSX.Element {
         }
         if (events.bombExploded) {
           playSound("boom");
+          // Re-render static layer when terrain changes (bombs destroy blocks)
+          setStaticLayerHash(currentLevel.id + "_" + Date.now());
         }
         if (events.tookDamage) {
           playSound("stricks");
@@ -263,11 +296,33 @@ export default function GamePage(): JSX.Element {
         return updatedState;
       });
 
-      const canvas = gameCanvasRef.current;
-      if (canvas) {
-        const ctx = canvas.getContext("2d");
+      // Render dynamic layer every frame
+      const dynamicCanvas = dynamicCanvasRef.current;
+      const staticCanvas = staticCanvasRef.current;
+      if (dynamicCanvas) {
+        const ctx = dynamicCanvas.getContext("2d");
         if (ctx) {
-          drawGameCanvas(ctx, gameStateRef.current, textures);
+          const { cameraX, cameraY } = calculateCameraPosition(
+            gameStateRef.current,
+            dynamicCanvas.width,
+            dynamicCanvas.height
+          );
+
+          // OPTIMIZATION: Re-render static layer only if camera moved significantly (>5 pixels)
+          // This reduces rendering work from 60 FPS to ~10-15 FPS for static elements
+          const cameraDeltaX = Math.abs(cameraX - lastCameraXRef.current);
+          const cameraDeltaY = Math.abs(cameraY - lastCameraYRef.current);
+          if ((cameraDeltaX > 5 || cameraDeltaY > 5) && staticCanvas) {
+            const staticCtx = staticCanvas.getContext("2d");
+            if (staticCtx) {
+              drawStaticLayer(staticCtx, gameStateRef.current, textures, cameraX, cameraY);
+              lastCameraXRef.current = cameraX;
+              lastCameraYRef.current = cameraY;
+            }
+          }
+
+          // Always render dynamic layer (player, monsters, bullets, animations)
+          drawDynamicLayer(ctx, gameStateRef.current, textures, cameraX, cameraY);
         }
       }
 
@@ -756,9 +811,9 @@ export default function GamePage(): JSX.Element {
         {/* Subtle ambient light effect */}
         <div className="absolute inset-0 bg-gradient-radial from-purple-900/10 via-transparent to-transparent pointer-events-none"></div>
 
-        <canvas
-          ref={gameCanvasRef}
-          className="rounded-2xl border-4 border-slate-700/30 relative z-10"
+        {/* Layered Canvas System */}
+        <div
+          className="relative rounded-2xl border-4 border-slate-700/30 z-10"
           style={{
             boxShadow: `
               0 25px 70px rgba(0, 0, 0, 0.6),
@@ -766,9 +821,30 @@ export default function GamePage(): JSX.Element {
               0 0 0 1px rgba(255, 255, 255, 0.05) inset
             `,
             transform: `scale(${canvasScale})`,
-            imageRendering: 'pixelated'
+            imageRendering: 'pixelated',
+            width: '480px',
+            height: '240px'
           }}
-        />
+        >
+          {/* Static Layer - Background and terrain */}
+          <canvas
+            ref={staticCanvasRef}
+            className="absolute top-0 left-0"
+            style={{
+              imageRendering: 'pixelated',
+              zIndex: 1
+            }}
+          />
+          {/* Dynamic Layer - Player, monsters, bullets, animations */}
+          <canvas
+            ref={dynamicCanvasRef}
+            className="absolute top-0 left-0"
+            style={{
+              imageRendering: 'pixelated',
+              zIndex: 2
+            }}
+          />
+        </div>
       </div>
 
       {/* Collapsible Controls */}

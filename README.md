@@ -98,5 +98,5 @@ Built for creative level design and classic platformer fun with modern web techn
 ---
 
 <div align="center">
-  <strong>Game Version: 1.9.0</strong> | Supabase Backend | Mobile Optimized
+  <strong>Game Version: 2.0.0</strong> | Supabase Backend | Mobile Optimized
 </div>

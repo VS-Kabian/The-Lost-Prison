@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useReducer } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { BACKGROUND_OPTIONS, TOOL_OPTIONS } from "../constants";
@@ -52,6 +52,153 @@ interface MessageState {
   visible: boolean;
 }
 
+// Consolidated state interface
+interface EditorPageState {
+  mode: Mode;
+  editorState: EditorState;
+  gameState: GameState;
+  message: MessageState;
+  currentLevelId: string | null;
+  isPublished: boolean;
+  lastSaveTime: number;
+}
+
+// Action types
+type EditorAction =
+  | { type: "LOAD_LEVEL"; payload: { editorState: EditorState; levelId: string | null; isPublished: boolean } }
+  | { type: "SAVE_LEVEL"; payload: { levelId: string; isPublished: boolean; timestamp: number } }
+  | { type: "SET_TOOL"; payload: { tool: Tool } }
+  | { type: "UPDATE_EDITOR_STATE"; payload: EditorState }
+  | { type: "UPDATE_GAME_STATE"; payload: GameState }
+  | { type: "SWITCH_TO_GAME"; payload: { gameState: GameState } }
+  | { type: "SWITCH_TO_EDITOR" }
+  | { type: "SHOW_MESSAGE"; payload: { text: string } }
+  | { type: "HIDE_MESSAGE" }
+  | { type: "SET_PUBLISHED"; payload: boolean }
+  | { type: "SET_LEVEL_NAME"; payload: string }
+  | { type: "SET_BACKGROUND"; payload: BackgroundKey }
+  | { type: "RESIZE_GRID"; payload: { width: number; height: number } }
+  | { type: "CLEAR_EDITOR" }
+  | { type: "FILL_BORDER" };
+
+// Reducer function
+function editorReducer(state: EditorPageState, action: EditorAction): EditorPageState {
+  switch (action.type) {
+    case "LOAD_LEVEL":
+      return {
+        ...state,
+        editorState: action.payload.editorState,
+        currentLevelId: action.payload.levelId,
+        isPublished: action.payload.isPublished
+      };
+
+    case "SAVE_LEVEL":
+      return {
+        ...state,
+        currentLevelId: action.payload.levelId,
+        isPublished: action.payload.isPublished,
+        lastSaveTime: action.payload.timestamp
+      };
+
+    case "SET_TOOL":
+      return {
+        ...state,
+        editorState: {
+          ...state.editorState,
+          selectedTool: action.payload.tool
+        }
+      };
+
+    case "UPDATE_EDITOR_STATE":
+      return {
+        ...state,
+        editorState: action.payload
+      };
+
+    case "UPDATE_GAME_STATE":
+      return {
+        ...state,
+        gameState: action.payload
+      };
+
+    case "SWITCH_TO_GAME":
+      return {
+        ...state,
+        mode: "game",
+        gameState: action.payload.gameState
+      };
+
+    case "SWITCH_TO_EDITOR":
+      return {
+        ...state,
+        mode: "editor"
+      };
+
+    case "SHOW_MESSAGE":
+      return {
+        ...state,
+        message: {
+          text: action.payload.text,
+          visible: true
+        }
+      };
+
+    case "HIDE_MESSAGE":
+      return {
+        ...state,
+        message: {
+          ...state.message,
+          visible: false
+        }
+      };
+
+    case "SET_PUBLISHED":
+      return {
+        ...state,
+        isPublished: action.payload
+      };
+
+    case "SET_LEVEL_NAME":
+      return {
+        ...state,
+        editorState: {
+          ...state.editorState,
+          name: action.payload
+        }
+      };
+
+    case "SET_BACKGROUND":
+      return {
+        ...state,
+        editorState: {
+          ...state.editorState,
+          background: action.payload
+        }
+      };
+
+    case "RESIZE_GRID":
+      return {
+        ...state,
+        editorState: resizeGrid(state.editorState, action.payload.width, action.payload.height)
+      };
+
+    case "CLEAR_EDITOR":
+      return {
+        ...state,
+        editorState: clearEditorState(state.editorState)
+      };
+
+    case "FILL_BORDER":
+      return {
+        ...state,
+        editorState: fillBorder(state.editorState)
+      };
+
+    default:
+      return state;
+  }
+}
+
 const LevelSelectOptions = Array.from({ length: MAX_LEVELS }, (_, index) => ({
   value: index + 1,
   label: `Level ${index + 1}`
@@ -60,14 +207,22 @@ const LevelSelectOptions = Array.from({ length: MAX_LEVELS }, (_, index) => ({
 export default function EditorPage(): JSX.Element {
   const { user, signOut, profile } = useAuth();
   const navigate = useNavigate();
-  const [mode, setMode] = useState<Mode>("editor");
-  const [editorState, setEditorState] = useState<EditorState>(() => createInitialEditorState());
-  const [gameState, setGameState] = useState<GameState>(() => createInitialGameState());
-  const [message, setMessage] = useState<MessageState>({ text: "", visible: false });
-  const [currentLevelId, setCurrentLevelId] = useState<string | null>(null);
-  const [isPublished, setIsPublished] = useState(false);
-  const [lastSaveTime, setLastSaveTime] = useState<number>(0);
+
+  // Initialize reducer with consolidated state
+  const [state, dispatch] = useReducer(editorReducer, {
+    mode: "editor",
+    editorState: createInitialEditorState(),
+    gameState: createInitialGameState(),
+    message: { text: "", visible: false },
+    currentLevelId: null,
+    isPublished: false,
+    lastSaveTime: 0
+  });
+
   const { textures } = useTextures();
+
+  // Destructure for easier access
+  const { mode, editorState, gameState, message, currentLevelId, isPublished, lastSaveTime } = state;
 
   const editorCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const gameCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -123,27 +278,24 @@ export default function EditorPage(): JSX.Element {
   }, []);
 
   const showMessage = (text: string) => {
-    setMessage({ text, visible: true });
+    dispatch({ type: "SHOW_MESSAGE", payload: { text } });
     if (messageTimeoutRef.current) {
       window.clearTimeout(messageTimeoutRef.current);
     }
     messageTimeoutRef.current = window.setTimeout(() => {
-      setMessage((prev) => ({ ...prev, visible: false }));
+      dispatch({ type: "HIDE_MESSAGE" });
     }, 3000);
   };
 
   const handleSelectTool = (tool: Tool) => {
-    setEditorState((prev) => ({
-      ...prev,
-      selectedTool: tool
-    }));
+    dispatch({ type: "SET_TOOL", payload: { tool } });
   };
 
   const applyToolAt = (clientX: number, clientY: number, target: HTMLCanvasElement) => {
     const rect = target.getBoundingClientRect();
     const x = Math.floor((clientX - rect.left) / TILE_SIZE);
     const y = Math.floor((clientY - rect.top) / TILE_SIZE);
-    setEditorState((prev) => applyToolAtPosition(prev, x, y));
+    dispatch({ type: "UPDATE_EDITOR_STATE", payload: applyToolAtPosition(editorState, x, y) });
   };
 
   // Save level to Supabase
@@ -172,9 +324,16 @@ export default function EditorPage(): JSX.Element {
     try {
       const levelData = createLevelFromEditorState(editorState);
       const savedLevel = await upsertLevel(levelData, editorState.currentLevel, user.id);
-      setCurrentLevelId(savedLevel.id);
-      setIsPublished(savedLevel.is_published);
-      setLastSaveTime(now); // Update last save time after successful save
+
+      // Batch state updates in single action
+      dispatch({
+        type: "SAVE_LEVEL",
+        payload: {
+          levelId: savedLevel.id,
+          isPublished: savedLevel.is_published,
+          timestamp: now
+        }
+      });
 
       if (savedLevel.is_published) {
         showMessage("✅ Level saved to cloud!");
@@ -196,7 +355,7 @@ export default function EditorPage(): JSX.Element {
 
     try {
       await publishLevel(currentLevelId);
-      setIsPublished(true);
+      dispatch({ type: "SET_PUBLISHED", payload: true });
       showMessage("✅ Level published! Players can now see it!");
     } catch (error: any) {
       logError("Error publishing level", error);
@@ -213,7 +372,7 @@ export default function EditorPage(): JSX.Element {
 
     try {
       await unpublishLevel(currentLevelId);
-      setIsPublished(false);
+      dispatch({ type: "SET_PUBLISHED", payload: false });
       showMessage("🔒 Level unpublished!");
     } catch (error: any) {
       logError("Error unpublishing level", error);
@@ -229,27 +388,39 @@ export default function EditorPage(): JSX.Element {
       const level = await getCreatorLevelByNumber(levelNumber, user.id);
       if (level) {
         const levelData = levelToLevelData(level);
-        setEditorState((prev) =>
-          applyLevelToEditorState(
-            {
-              ...prev,
-              currentLevel: levelNumber,
-              name: levelData.name ?? `Level ${levelNumber}`
-            },
-            levelData
-          )
+        const newEditorState = applyLevelToEditorState(
+          {
+            ...editorState,
+            currentLevel: levelNumber,
+            name: levelData.name ?? `Level ${levelNumber}`
+          },
+          levelData
         );
-        setCurrentLevelId(level.id);
-        setIsPublished(level.is_published);
+
+        // Batch all state updates in single action
+        dispatch({
+          type: "LOAD_LEVEL",
+          payload: {
+            editorState: newEditorState,
+            levelId: level.id,
+            isPublished: level.is_published
+          }
+        });
         showMessage(`📂 Loaded Level ${levelNumber} from cloud`);
       } else {
-        setEditorState({
-          ...createInitialEditorState(),
-          currentLevel: levelNumber,
-          name: `Level ${levelNumber}`
+        // Batch state updates for new level
+        dispatch({
+          type: "LOAD_LEVEL",
+          payload: {
+            editorState: {
+              ...createInitialEditorState(),
+              currentLevel: levelNumber,
+              name: `Level ${levelNumber}`
+            },
+            levelId: null,
+            isPublished: false
+          }
         });
-        setCurrentLevelId(null);
-        setIsPublished(false);
         showMessage(`📝 New Level ${levelNumber}`);
       }
     } catch (error: any) {
@@ -267,15 +438,12 @@ export default function EditorPage(): JSX.Element {
       showMessage("⚠️ Grid size must be 10-30 (width) and 10-20 (height)");
       return;
     }
-    setEditorState((prev) => resizeGrid(prev, width, height));
+    dispatch({ type: "RESIZE_GRID", payload: { width, height } });
     showMessage("✅ Grid resized!");
   };
 
   const handleBackgroundChange = (value: BackgroundKey) => {
-    setEditorState((prev) => ({
-      ...prev,
-      background: value
-    }));
+    dispatch({ type: "SET_BACKGROUND", payload: value });
     showMessage("🖼️ Background changed!");
   };
 
@@ -300,8 +468,9 @@ export default function EditorPage(): JSX.Element {
     }
     const levelData = createLevelFromEditorState(editorState);
     const newGameState = buildGameStateFromLevel(levelData, editorState.currentLevel);
-    setGameState(newGameState);
-    setMode("game");
+
+    // Batch mode switch and game state update
+    dispatch({ type: "SWITCH_TO_GAME", payload: { gameState: newGameState } });
   };
 
   const handleSignOut = async () => {
@@ -318,26 +487,24 @@ export default function EditorPage(): JSX.Element {
     if (mode !== "game") return;
 
     const update = () => {
-      setGameState(prev => {
-        const { state: updatedState, events } = updateGameFrame(prev, keysRef.current);
+      const { state: updatedState, events } = updateGameFrame(gameStateRef.current, keysRef.current);
 
-        if (events.playerDied) {
-          setTimeout(() => {
-            const levelData = createLevelFromEditorState(editorState);
-            const newGameState = buildGameStateFromLevel(levelData, editorState.currentLevel);
-            setGameState(newGameState);
-          }, 500);
-        }
+      if (events.playerDied) {
+        setTimeout(() => {
+          const levelData = createLevelFromEditorState(editorState);
+          const newGameState = buildGameStateFromLevel(levelData, editorState.currentLevel);
+          dispatch({ type: "UPDATE_GAME_STATE", payload: newGameState });
+        }, 500);
+      }
 
-        if (events.levelComplete) {
-          setTimeout(() => {
-            setMode("editor");
-            showMessage("🎉 Level Complete! Returning to editor...");
-          }, 1000);
-        }
+      if (events.levelComplete) {
+        setTimeout(() => {
+          dispatch({ type: "SWITCH_TO_EDITOR" });
+          showMessage("🎉 Level Complete! Returning to editor...");
+        }, 1000);
+      }
 
-        return updatedState;
-      });
+      dispatch({ type: "UPDATE_GAME_STATE", payload: updatedState });
 
       const canvas = gameCanvasRef.current;
       if (canvas) {
@@ -361,30 +528,34 @@ export default function EditorPage(): JSX.Element {
 
       if (e.key === " " && gameStateRef.current.player.onGround) {
         e.preventDefault();
-        setGameState(prev => {
-          const next = { ...prev, player: { ...prev.player } };
-          jump(next.player);
-          return next;
-        });
+        const next = { ...gameStateRef.current, player: { ...gameStateRef.current.player } };
+        jump(next.player);
+        dispatch({ type: "UPDATE_GAME_STATE", payload: next });
       }
 
       if (e.key === "f" || e.key === "F") {
         if (gameStateRef.current.player.hasWeapon && gameStateRef.current.ammo > 0) {
-          setGameState(prev => ({
-            ...prev,
-            bullets: [...prev.bullets, createPlayerBullet(prev.player)],
-            ammo: prev.ammo - 1
-          }));
+          dispatch({
+            type: "UPDATE_GAME_STATE",
+            payload: {
+              ...gameStateRef.current,
+              bullets: [...gameStateRef.current.bullets, createPlayerBullet(gameStateRef.current.player)],
+              ammo: gameStateRef.current.ammo - 1
+            }
+          });
         }
       }
 
       if (e.key === "b" || e.key === "B") {
         if (gameStateRef.current.bombCount > 0) {
-          setGameState(prev => ({
-            ...prev,
-            placedBombs: [...prev.placedBombs, createPlacedBomb(prev.player)],
-            bombCount: prev.bombCount - 1
-          }));
+          dispatch({
+            type: "UPDATE_GAME_STATE",
+            payload: {
+              ...gameStateRef.current,
+              placedBombs: [...gameStateRef.current.placedBombs, createPlacedBomb(gameStateRef.current.player)],
+              bombCount: gameStateRef.current.bombCount - 1
+            }
+          });
         }
       }
     };
@@ -413,7 +584,7 @@ export default function EditorPage(): JSX.Element {
               🎮 <span>Testing Level {editorState.currentLevel}</span>
             </h1>
             <button
-              onClick={() => setMode("editor")}
+              onClick={() => dispatch({ type: "SWITCH_TO_EDITOR" })}
               className="rounded-lg bg-white/20 hover:bg-white/30 backdrop-blur-sm px-4 py-1.5 text-sm font-semibold text-white transition-all hover:scale-105"
             >
               📝 Back to Editor
@@ -548,7 +719,7 @@ export default function EditorPage(): JSX.Element {
                   const sanitized = e.target.value
                     .slice(0, 100) // Max 100 characters
                     .replace(/[<>]/g, ''); // Remove potential XSS characters
-                  setEditorState(prev => ({ ...prev, name: sanitized }));
+                  dispatch({ type: "SET_LEVEL_NAME", payload: sanitized });
                 }}
                 maxLength={100}
                 className="w-full rounded-lg border-2 border-slate-200 p-2 text-sm focus:border-purple-400 focus:outline-none"
@@ -645,14 +816,14 @@ export default function EditorPage(): JSX.Element {
               </button>
 
               <button
-                onClick={() => setEditorState(clearEditorState(editorState))}
+                onClick={() => dispatch({ type: "CLEAR_EDITOR" })}
                 className="w-full rounded-lg bg-red-500 hover:bg-red-600 py-2.5 text-sm font-bold text-white shadow-sm hover:shadow-md transition-all"
               >
                 🗑️ Clear All
               </button>
 
               <button
-                onClick={() => setEditorState(fillBorder(editorState))}
+                onClick={() => dispatch({ type: "FILL_BORDER" })}
                 className="w-full rounded-lg bg-slate-600 hover:bg-slate-700 py-2.5 text-sm font-bold text-white shadow-sm hover:shadow-md transition-all"
               >
                 🔲 Add Border

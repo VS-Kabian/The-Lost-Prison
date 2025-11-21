@@ -35,7 +35,7 @@ const textureSources: Record<TextureKey, string> = {
   stone: "/Images/Stone.webp",
   lava: "/Images/Lava.png",
   platform: "/Images/Wood Platform.webp",
-  grassstone: "/Images/Gras+Stone Block.jpg",
+  grassstone: "/Images/Grass-Stone-Block.jpg",
   grass: "/Images/Grass-Block.webp",
   soil: "/Images/Soil.webp",
   key: "/Images/Key.png",
