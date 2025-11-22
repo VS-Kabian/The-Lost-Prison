@@ -38,6 +38,7 @@ export function createInitialGameState(): GameState {
     bullets: [],
     placedBombs: [],
     firetraps: [],
+    spiketraps: [],
     goalPos: null,
     theme: "sky",
     player: {
@@ -171,6 +172,19 @@ export function buildGameStateFromLevel(levelData: LevelData, currentLevel: numb
     })
   );
 
+  // Convert spike traps from editor format to game format
+  state.spiketraps = (levelData.spiketraps ?? []).map(
+    (trap): import("../types").SpikeTrapState => ({
+      x: trap.x,
+      y: trap.y,
+      activeTime: trap.activeTime * 60,  // Convert seconds to frames
+      restTime: trap.restTime * 60,       // Convert seconds to frames
+      timer: trap.restTime * 60 - 30,     // Start with warning phase (0.5s before)
+      isActive: false,
+      warning: false
+    })
+  );
+
   state.startTime = Date.now();
   return state;
 }
@@ -223,7 +237,8 @@ export function updateBullets(
   grid: number[][],
   monsters: MonsterState[],
   doors: DoorState[],
-  firetraps: import("../types").FireTrapState[]
+  firetraps: import("../types").FireTrapState[],
+  spiketraps: import("../types").SpikeTrapState[]
 ): {
   bullets: BulletState[];
   monsters: MonsterState[];
@@ -308,8 +323,26 @@ export function updateBullets(
       }
     });
 
+    if (hitFireTrap) {
+      return; // Bullet hit a fire trap
+    }
+
+    // Check if bullet hits a spike trap block
+    let hitSpikeTrap = false;
+    spiketraps.forEach((trap) => {
+      const trapBox = {
+        x: trap.x * TILE_SIZE,
+        y: trap.y * TILE_SIZE,
+        width: TILE_SIZE,
+        height: TILE_SIZE
+      };
+      if (checkCollision(nextBullet, trapBox)) {
+        hitSpikeTrap = true;
+      }
+    });
+
     // Only keep bullet if it didn't hit anything
-    if (!hitFireTrap) {
+    if (!hitSpikeTrap) {
       nextBullets.push(nextBullet);
     }
   });

@@ -28,7 +28,9 @@ type TextureKey =
   | "fire1"
   | "fire2"
   | "fire3"
-  | "fire4";
+  | "fire4"
+  | "spikeTrapBlock"
+  | "spike";
 
 const textureSources: Record<TextureKey, string> = {
   wall: "/Images/Wall.webp",
@@ -57,7 +59,9 @@ const textureSources: Record<TextureKey, string> = {
   fire1: "/Images/Fire Anim/Fire-1.png",
   fire2: "/Images/Fire Anim/Fire-2.png",
   fire3: "/Images/Fire Anim/Fire-3.png",
-  fire4: "/Images/Fire Anim/Fire-4.png"
+  fire4: "/Images/Fire Anim/Fire-4.png",
+  spikeTrapBlock: "/Images/Spike_Trap.webp",
+  spike: "/Images/Spike.png"
 };
 
 export type TextureMap = Partial<Record<TextureKey, HTMLImageElement>>;

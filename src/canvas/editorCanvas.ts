@@ -217,6 +217,23 @@ export function drawEditorCanvas(
     ctx.restore();
   });
 
+  // Render spike traps
+  (state.spiketraps ?? []).forEach((trap) => {
+    const trapX = trap.x * TILE_SIZE;
+    const trapY = trap.y * TILE_SIZE;
+
+    if (textures.spikeTrapBlock?.complete) {
+      ctx.drawImage(textures.spikeTrapBlock, trapX, trapY, TILE_SIZE, TILE_SIZE);
+    } else {
+      // Fallback rendering
+      ctx.fillStyle = "#666666";
+      ctx.fillRect(trapX, trapY, TILE_SIZE, TILE_SIZE);
+      ctx.font = "24px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("🏮", trapX + 20, trapY + 26);
+    }
+  });
+
   if (state.goal) {
     const goalX = state.goal.x * TILE_SIZE;
     const goalY = state.goal.y * TILE_SIZE;

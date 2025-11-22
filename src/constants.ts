@@ -59,7 +59,8 @@ export const TOOL_OPTIONS = [
   {
     label: "Traps",
     tools: [
-      { id: "firetrap", name: "Fire Trap", icon: "🔥" }
+      { id: "firetrap", name: "Fire Trap", icon: "🔥" },
+      { id: "spiketrap", name: "Spike Trap", icon: "🏮" }
     ]
   }
 ] as const;

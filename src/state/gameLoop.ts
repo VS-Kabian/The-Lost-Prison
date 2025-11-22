@@ -30,6 +30,7 @@ function cloneState(state: GameState): GameState {
     bullets: state.bullets.map((bullet) => ({ ...bullet })),
     placedBombs: state.placedBombs.map((bomb) => ({ ...bomb })),
     firetraps: state.firetraps.map((trap) => ({ ...trap, fireBlocks: [...trap.fireBlocks] })),
+    spiketraps: state.spiketraps.map((trap) => ({ ...trap })),
     grid: state.grid.map((row) => [...row])
   };
 }
@@ -204,6 +205,21 @@ function updateMonsters(state: GameState, player: PlayerState): boolean {
       });
     }
 
+    // Check collision with spike trap blocks
+    if (!hitWall) {
+      state.spiketraps.forEach((trap) => {
+        const trapBox = {
+          x: trap.x * TILE_SIZE,
+          y: trap.y * TILE_SIZE,
+          width: TILE_SIZE,
+          height: TILE_SIZE
+        };
+        if (checkCollision(monster, trapBox)) {
+          hitWall = true;
+        }
+      });
+    }
+
     // If hit wall or reached patrol boundary, reverse direction
     const gridX = Math.floor(monster.x / TILE_SIZE);
     if (hitWall || gridX <= monster.patrol[0] || gridX >= monster.patrol[1]) {
@@ -265,6 +281,35 @@ function handleDoorCollisions(state: GameState, player: PlayerState): void {
       if (checkCollision(player, doorBox)) {
         resolveCollision(player, doorBox);
       }
+    }
+  });
+}
+
+// Treat all trap blocks (fire traps and spike traps) as solid blocks
+function handleTrapCollisions(state: GameState, player: PlayerState): void {
+  // Fire trap blocks are solid
+  state.firetraps.forEach((trap) => {
+    const trapBox = {
+      x: trap.x * TILE_SIZE,
+      y: trap.y * TILE_SIZE,
+      width: TILE_SIZE,
+      height: TILE_SIZE
+    };
+    if (checkCollision(player, trapBox)) {
+      resolveCollision(player, trapBox);
+    }
+  });
+
+  // Spike trap blocks are solid
+  state.spiketraps.forEach((trap) => {
+    const trapBox = {
+      x: trap.x * TILE_SIZE,
+      y: trap.y * TILE_SIZE,
+      width: TILE_SIZE,
+      height: TILE_SIZE
+    };
+    if (checkCollision(player, trapBox)) {
+      resolveCollision(player, trapBox);
     }
   });
 }
@@ -421,6 +466,57 @@ function updateFireTraps(state: GameState, player: PlayerState): boolean {
   return tookFireDamage;
 }
 
+function updateSpikeTraps(state: GameState, player: PlayerState): boolean {
+  let tookSpikeDamage = false;
+
+  state.spiketraps.forEach((trap) => {
+    trap.timer -= 1;
+
+    // Handle timer reset and state transitions
+    if (trap.timer <= 0) {
+      if (trap.isActive) {
+        // End of active phase, start rest phase
+        trap.isActive = false;
+        trap.warning = false;
+        trap.timer = trap.restTime;
+      } else {
+        // End of rest phase, start warning then active phase
+        trap.warning = false;
+        trap.isActive = true;
+        trap.timer = trap.activeTime;
+      }
+    }
+
+    // Warning phase: 0.5s (30 frames) before activation
+    if (!trap.isActive && trap.timer <= 30 && trap.timer > 0) {
+      trap.warning = true;
+    } else if (trap.isActive) {
+      trap.warning = false;
+    }
+
+    // Check collision with player when spikes are active
+    if (trap.isActive && state.damageTimer <= 0) {
+      // Spikes appear directly above the trap block
+      const spikeBox = {
+        x: trap.x * TILE_SIZE,
+        y: (trap.y - 1) * TILE_SIZE,  // One block above trap
+        width: TILE_SIZE,
+        height: TILE_SIZE
+      };
+
+      if (checkCollision(player, spikeBox)) {
+        state.health -= 1;
+        state.damageTimer = 60;  // 1 second invincibility
+        player.shaking = true;
+        player.shakeTimer = 30;
+        tookSpikeDamage = true;
+      }
+    }
+  });
+
+  return tookSpikeDamage;
+}
+
 function handleGoal(state: GameState, player: PlayerState): boolean {
   if (!state.goalPos) {
     logWarning("No goal position set!");
@@ -481,8 +577,11 @@ export function updateGameFrame(state: GameState, keys: KeyMap): {
   // Handle fire trap damage and animation
   const fireDamage = updateFireTraps(nextState, player);
 
+  // Handle spike trap damage and animation
+  const spikeDamage = updateSpikeTraps(nextState, player);
+
   // Combine damage from all sources
-  const tookDamage = monsterDamage || lavaDamage || fireDamage;
+  const tookDamage = monsterDamage || lavaDamage || fireDamage || spikeDamage;
 
   // Check if player died from damage
   if (tookDamage && nextState.health <= 0) {
@@ -496,6 +595,9 @@ export function updateGameFrame(state: GameState, keys: KeyMap): {
   // Handle door collisions (doors act as solid blocks when closed)
   handleDoorCollisions(nextState, player);
 
+  // Handle trap block collisions (trap blocks are solid)
+  handleTrapCollisions(nextState, player);
+
   const itemCollected = collectItems(nextState, player);
 
   const { bullets, monsters } = updateBullets(
@@ -503,7 +605,8 @@ export function updateGameFrame(state: GameState, keys: KeyMap): {
     nextState.grid,
     nextState.monsters,
     nextState.doors,
-    nextState.firetraps
+    nextState.firetraps,
+    nextState.spiketraps
   );
   nextState.bullets = bullets;
   nextState.monsters = monsters;

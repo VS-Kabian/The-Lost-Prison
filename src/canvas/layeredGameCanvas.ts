@@ -181,6 +181,22 @@ export function drawStaticLayer(
     }
   });
 
+  // Draw spike trap blocks (static blocks)
+  state.spiketraps.forEach((trap) => {
+    const trapX = trap.x * TILE_SIZE;
+    const trapY = trap.y * TILE_SIZE;
+
+    if (textures.spikeTrapBlock?.complete) {
+      ctx.drawImage(textures.spikeTrapBlock, trapX, trapY, TILE_SIZE, TILE_SIZE);
+    } else {
+      ctx.fillStyle = "#666666";
+      ctx.fillRect(trapX, trapY, TILE_SIZE, TILE_SIZE);
+      ctx.font = "20px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("🏮", trapX + 20, trapY + 26);
+    }
+  });
+
   ctx.restore();
 }
 
@@ -339,6 +355,45 @@ export function drawDynamicLayer(
           ctx.fillRect(fireOffsetX, fireOffsetY, fireSize, fireSize);
         }
       });
+    }
+  });
+
+  // Draw spike trap animations
+  state.spiketraps.forEach((trap) => {
+    const trapX = trap.x * TILE_SIZE;
+    const trapY = trap.y * TILE_SIZE;
+
+    // Draw warning glow
+    if (trap.warning) {
+      const glowIntensity = Math.abs(Math.sin(state.animationFrame * 0.2)) * 0.5 + 0.5;
+      ctx.save();
+      ctx.globalAlpha = glowIntensity;
+      ctx.fillStyle = "#ff9900";
+      ctx.fillRect(trapX, trapY, TILE_SIZE, TILE_SIZE);
+      ctx.restore();
+    }
+
+    // Draw spikes when active (seamlessly connected to trap block)
+    if (trap.isActive) {
+      if (textures.spike?.complete) {
+        // Optimized spike dimensions for perfect fit
+        const spikeWidth = TILE_SIZE * 0.75;   // 75% of tile width (slender)
+        const spikeHeight = TILE_SIZE * 1.2;   // 120% of tile height (slightly reduced)
+        const spikeX = trapX + (TILE_SIZE - spikeWidth) / 2;  // Center horizontally
+        const spikeY = trapY - TILE_SIZE + 2;  // Position with seamless overlap
+
+        // Draw centered spike with perfect connection
+        ctx.drawImage(textures.spike, spikeX, spikeY, spikeWidth, spikeHeight);
+      } else {
+        // Fallback rendering
+        const spikeX = trapX;
+        const spikeY = trapY - TILE_SIZE - 8;
+        ctx.fillStyle = "#cc0000";
+        ctx.fillRect(spikeX, spikeY, TILE_SIZE, TILE_SIZE);
+        ctx.font = "20px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("▲", spikeX + 20, spikeY + 26);
+      }
     }
   });
 

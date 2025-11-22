@@ -39,7 +39,8 @@ export type Tool =
   | "monster"
   | "weapon"
   | "bomb"
-  | "firetrap";
+  | "firetrap"
+  | "spiketrap";
 
 export interface GridPosition {
   x: number;
@@ -63,6 +64,11 @@ export interface EditorFireTrap extends GridPosition {
   restTime: number;       // Seconds between sprays
 }
 
+export interface EditorSpikeTrap extends GridPosition {
+  activeTime: number;     // Seconds spikes are extended
+  restTime: number;       // Seconds between activations
+}
+
 export interface LevelData {
   name: string;
   gridWidth: number;
@@ -76,6 +82,7 @@ export interface LevelData {
   keys: GridPosition[];
   doors: EditorDoor[];
   firetraps?: EditorFireTrap[];
+  spiketraps?: EditorSpikeTrap[];
   playerStart: GridPosition | null;
   goal: GridPosition | null;
   background: BackgroundKey;
@@ -157,6 +164,16 @@ export interface FireTrapState {
   fireBlocks: GridPosition[];  // Current fire positions for collision
 }
 
+export interface SpikeTrapState {
+  x: number;  // Grid x position
+  y: number;  // Grid y position
+  activeTime: number;   // In frames (60fps)
+  restTime: number;     // In frames (60fps)
+  timer: number;        // Current timer
+  isActive: boolean;    // Spikes extended
+  warning: boolean;     // Warning glow active
+}
+
 export interface GameState {
   level: number;
   keys: number;
@@ -176,6 +193,7 @@ export interface GameState {
   bullets: BulletState[];
   placedBombs: PlacedBomb[];
   firetraps: FireTrapState[];
+  spiketraps: SpikeTrapState[];
   goalPos: GridPosition | null;
   player: PlayerState;
   startTime: number;

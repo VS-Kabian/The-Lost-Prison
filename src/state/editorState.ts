@@ -54,6 +54,7 @@ export function createInitialEditorState(): EditorState {
     keys: [],
     doors: [],
     firetraps: [],
+    spiketraps: [],
     playerStart: null,
     goal: null,
     background: "none",
@@ -76,6 +77,7 @@ export function createLevelFromEditorState(state: EditorState): LevelData {
     keys: state.keys,
     doors: state.doors,
     firetraps: state.firetraps,
+    spiketraps: state.spiketraps,
     playerStart: state.playerStart,
     goal: state.goal,
     background: state.background,
@@ -98,6 +100,7 @@ export function applyLevelToEditorState(state: EditorState, level: LevelData): E
     keys: level.keys ?? [],
     doors: level.doors ?? [],
     firetraps: level.firetraps ?? [],
+    spiketraps: level.spiketraps ?? [],
     playerStart: level.playerStart ?? null,
     goal: level.goal ?? null,
     background: (level.background ?? "none") as BackgroundKey
@@ -137,6 +140,15 @@ export function createFireTrapAt(x: number, y: number): import("../types").Edito
   };
 }
 
+export function createSpikeTrapAt(x: number, y: number): import("../types").EditorSpikeTrap {
+  return {
+    x,
+    y,
+    activeTime: 2,       // Default 2 seconds extended
+    restTime: 2          // Default 2 seconds retracted
+  };
+}
+
 export function toolToTile(tool: Tool): number | null {
   switch (tool) {
     case "wall":
@@ -173,6 +185,7 @@ export function applyToolAtPosition(state: EditorState, x: number, y: number): E
   let keys = state.keys;
   let doors = state.doors;
   let firetraps = state.firetraps ?? [];
+  let spiketraps = state.spiketraps ?? [];
   let playerStart = state.playerStart;
   let goal = state.goal;
 
@@ -185,6 +198,7 @@ export function applyToolAtPosition(state: EditorState, x: number, y: number): E
     keys = removeObjectAtPosition(keys, position);
     doors = removeObjectAtPosition(doors, position);
     firetraps = removeObjectAtPosition(firetraps, position);
+    spiketraps = removeObjectAtPosition(spiketraps, position);
     if (playerStart && playerStart.x === x && playerStart.y === y) {
       playerStart = null;
     }
@@ -250,6 +264,11 @@ export function applyToolAtPosition(state: EditorState, x: number, y: number): E
       firetraps = upsertUnique(firetraps, createFireTrapAt(x, y));
       newGrid[y][x] = 0;
       break;
+    case "spiketrap":
+      clearPosition();
+      spiketraps = upsertUnique(spiketraps, createSpikeTrapAt(x, y));
+      newGrid[y][x] = 0;
+      break;
     default:
       break;
   }
@@ -263,6 +282,7 @@ export function applyToolAtPosition(state: EditorState, x: number, y: number): E
     keys,
     doors,
     firetraps,
+    spiketraps,
     goal,
     playerStart
   };
@@ -296,6 +316,7 @@ export function clearEditorState(state: EditorState): EditorState {
     keys: [],
     doors: [],
     firetraps: [],
+    spiketraps: [],
     playerStart: null,
     goal: null
   };
@@ -323,6 +344,7 @@ export function resizeGrid(state: EditorState, width: number, height: number): E
     keys: filterWithinBounds(state.keys),
     doors: filterWithinBounds(state.doors),
     firetraps: filterWithinBounds(state.firetraps ?? []),
+    spiketraps: filterWithinBounds(state.spiketraps ?? []),
     playerStart: state.playerStart && state.playerStart.x < clampedWidth && state.playerStart.y < clampedHeight
       ? state.playerStart
       : null,
